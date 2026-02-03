@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Outlook = Microsoft.Office.Interop.Outlook;
@@ -34,13 +35,12 @@ namespace outlook_extension
         {
             UnregisterShortcut();
 
-            var explorer = _application.ActiveExplorer();
-            if (explorer == null)
+            var handle = GetOutlookWindowHandle();
+            if (handle == IntPtr.Zero)
             {
                 return;
             }
 
-            var handle = new IntPtr(explorer.HWND);
             _hotkeyWindow.AssignHandle(handle);
 
             if (!ShortcutParser.TryParse(_settingsService.Current.Shortcut, out var modifiers, out var key))
@@ -66,14 +66,11 @@ namespace outlook_extension
 
             try
             {
-                var explorer = _application.ActiveExplorer();
-                if (explorer == null)
+                var handle = GetOutlookWindowHandle();
+                if (handle != IntPtr.Zero)
                 {
-                    return;
+                    UnregisterHotKey(handle, HotkeyId);
                 }
-
-                var handle = new IntPtr(explorer.HWND);
-                UnregisterHotKey(handle, HotkeyId);
             }
             catch (Exception ex)
             {
@@ -94,6 +91,17 @@ namespace outlook_extension
         private void OnHotkeyPressed()
         {
             _hotkeyAction?.Invoke();
+        }
+
+        private static IntPtr GetOutlookWindowHandle()
+        {
+            var handle = Process.GetCurrentProcess().MainWindowHandle;
+            if (handle != IntPtr.Zero)
+            {
+                return handle;
+            }
+
+            return GetForegroundWindow();
         }
 
         private class HotkeyWindow : NativeWindow
@@ -121,5 +129,8 @@ namespace outlook_extension
 
         [DllImport("user32.dll")]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
     }
 }

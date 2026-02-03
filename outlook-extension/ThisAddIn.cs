@@ -12,6 +12,7 @@ namespace outlook_extension
         private SearchService _searchService;
         private HotkeyService _hotkeyService;
         private LoggingService _loggingService;
+        private Outlook.Stores _stores;
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
@@ -25,8 +26,9 @@ namespace outlook_extension
             _hotkeyService.RegisterShortcut();
 
             Application.Explorers.NewExplorer += OnNewExplorer;
-            Application.Session.StoreAdd += OnStoreChanged;
-            Application.Session.StoreRemove += OnStoreChanged;
+            _stores = Application.Session.Stores;
+            _stores.StoreAdd += OnStoreChanged;
+            _stores.StoreRemove += OnStoreChanged;
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -34,10 +36,12 @@ namespace outlook_extension
             // Hinweis: Outlook löst dieses Ereignis nicht mehr aus. Wenn Code vorhanden ist, der 
             //    muss ausgeführt werden, wenn Outlook heruntergefahren wird. Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?LinkId=506785.
             Application.Explorers.NewExplorer -= OnNewExplorer;
-            if (Application.Session != null)
+            if (_stores != null)
             {
-                Application.Session.StoreAdd -= OnStoreChanged;
-                Application.Session.StoreRemove -= OnStoreChanged;
+                _stores.StoreAdd -= OnStoreChanged;
+                _stores.StoreRemove -= OnStoreChanged;
+                Marshal.ReleaseComObject(_stores);
+                _stores = null;
             }
 
             _hotkeyService?.Dispose();
