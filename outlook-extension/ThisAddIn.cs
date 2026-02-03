@@ -84,6 +84,7 @@ namespace outlook_extension
 
         private void SetWindowOwner(System.Windows.Window dialog)
         {
+            dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
             try
             {
                 var helper = new System.Windows.Interop.WindowInteropHelper(dialog)
@@ -93,6 +94,7 @@ namespace outlook_extension
             }
             catch
             {
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
                 // Ignore owner setup failures to avoid blocking the dialog.
             }
         }

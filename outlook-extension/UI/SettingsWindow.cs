@@ -37,7 +37,7 @@ namespace outlook_extension
             {
                 Background = WpfStyles.GlassBackground,
                 CornerRadius = new CornerRadius(22),
-                Padding = new Thickness(22)
+                Padding = new Thickness(24)
             };
 
             var layout = new Grid();
@@ -76,7 +76,7 @@ namespace outlook_extension
             var content = BuildContent();
             if (content is FrameworkElement contentElement)
             {
-                contentElement.Margin = new Thickness(0, 12, 0, 12);
+                contentElement.Margin = new Thickness(0, 16, 0, 16);
             }
             Grid.SetRow(content, 1);
             layout.Children.Add(content);
@@ -164,7 +164,7 @@ namespace outlook_extension
             var favoritesButtons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 6, 0, 6)
+                Margin = new Thickness(0, 10, 0, 10)
             };
             var addFavorite = WpfStyles.CreateSubtleButton("Hinzufügen");
             var removeFavorite = WpfStyles.CreateSubtleButton("Entfernen");
@@ -210,19 +210,19 @@ namespace outlook_extension
 
             Grid.SetRow(_showInboxOnly, 4);
             Grid.SetColumn(_showInboxOnly, 1);
-            _showInboxOnly.Margin = new Thickness(0, 8, 0, 0);
+            _showInboxOnly.Margin = new Thickness(0, 12, 0, 0);
             grid.Children.Add(_showInboxOnly);
 
             Grid.SetRow(_includeArchives, 5);
             Grid.SetColumn(_includeArchives, 1);
-            _includeArchives.Margin = new Thickness(0, 6, 0, 0);
+            _includeArchives.Margin = new Thickness(0, 8, 0, 0);
             grid.Children.Add(_includeArchives);
 
             var refreshButton = WpfStyles.CreateSubtleButton("Ordnerliste neu laden");
             refreshButton.Click += (sender, args) => _folderService.RefreshCache();
             Grid.SetRow(refreshButton, 6);
             Grid.SetColumn(refreshButton, 1);
-            refreshButton.Margin = new Thickness(0, 10, 0, 0);
+            refreshButton.Margin = new Thickness(0, 14, 0, 0);
             grid.Children.Add(refreshButton);
 
             return WpfStyles.CreateGlassCard(grid);
@@ -233,7 +233,8 @@ namespace outlook_extension
             var panel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 8, 0, 0)
             };
             var saveButton = WpfStyles.CreatePrimaryButton("Speichern");
             var cancelButton = WpfStyles.CreateSubtleButton("Abbrechen");

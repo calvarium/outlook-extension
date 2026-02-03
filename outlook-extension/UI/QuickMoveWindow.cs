@@ -15,7 +15,6 @@ namespace outlook_extension
         private readonly ThisAddIn _addIn;
         private readonly TextBox _searchBox;
         private readonly ListBox _resultsList;
-        private readonly TextBlock _statusText;
         private List<FolderInfo> _currentResults = new List<FolderInfo>();
 
         public QuickMoveWindow(FolderService folderService, SearchService searchService, ThisAddIn addIn)
@@ -25,7 +24,7 @@ namespace outlook_extension
             _addIn = addIn;
 
             Width = 640;
-            Height = 460;
+            Height = 360;
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
@@ -49,20 +48,15 @@ namespace outlook_extension
 
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var header = BuildHeader();
-            Grid.SetRow(header, 0);
-            layout.Children.Add(header);
+            layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
             _searchBox = WpfStyles.CreateTextBox();
             _searchBox.TextChanged += OnSearchTextChanged;
             _searchBox.KeyDown += OnSearchBoxKeyDown;
             var searchCard = WpfStyles.CreateInputCard(_searchBox);
-            searchCard.Margin = new Thickness(0, 12, 0, 12);
-            Grid.SetRow(searchCard, 1);
+            searchCard.Margin = new Thickness(0, 0, 0, 16);
+            Grid.SetRow(searchCard, 0);
             layout.Children.Add(searchCard);
 
             _resultsList = WpfStyles.CreateListBox();
@@ -70,21 +64,29 @@ namespace outlook_extension
             _resultsList.KeyDown += OnResultsKeyDown;
             _resultsList.PreviewTextInput += OnResultsTextInput;
             _resultsList.MouseDoubleClick += (sender, args) => MoveSelectedFolder(false);
+            _resultsList.SelectionChanged += (sender, args) => _searchBox.Focus();
+            _resultsList.PreviewMouseDown += (sender, args) => _searchBox.Focus();
 
             var listCard = WpfStyles.CreateGlassCard(_resultsList);
-            Grid.SetRow(listCard, 2);
+            listCard.MouseLeftButtonDown += (sender, args) =>
+            {
+                if (_resultsList.Items.Count > 0)
+                {
+                    _resultsList.SelectedIndex = Math.Max(_resultsList.SelectedIndex, 0);
+                    _searchBox.Focus();
+                }
+            };
+            Grid.SetRow(listCard, 1);
             layout.Children.Add(listCard);
 
-            _statusText = new TextBlock
-            {
-                Foreground = WpfStyles.TextSecondary,
-                FontSize = 12,
-                Margin = new Thickness(4, 10, 0, 0)
-            };
-            Grid.SetRow(_statusText, 3);
-            layout.Children.Add(_statusText);
-
             rootBorder.Child = layout;
+            rootBorder.MouseLeftButtonDown += (sender, args) =>
+            {
+                if (args.ButtonState == MouseButtonState.Pressed)
+                {
+                    DragMove();
+                }
+            };
             Content = rootBorder;
 
             Loaded += (sender, args) =>
@@ -92,47 +94,7 @@ namespace outlook_extension
                 _searchBox.Focus();
                 UpdateResults();
             };
-        }
-
-        private UIElement BuildHeader()
-        {
-            var headerGrid = new Grid();
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var titleStack = new StackPanel
-            {
-                Orientation = Orientation.Vertical
-            };
-            titleStack.Children.Add(new TextBlock
-            {
-                Text = "Quick Move",
-                FontSize = 18,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = WpfStyles.TextPrimary
-            });
-            titleStack.Children.Add(new TextBlock
-            {
-                Text = "Schnell verschieben, klar & fokussiert",
-                FontSize = 11,
-                Foreground = WpfStyles.TextSecondary
-            });
-
-            var closeButton = WpfStyles.CreateIconButton("✕");
-            closeButton.Click += (sender, args) => Close();
-            Grid.SetColumn(closeButton, 1);
-
-            headerGrid.Children.Add(titleStack);
-            headerGrid.Children.Add(closeButton);
-            headerGrid.MouseLeftButtonDown += (sender, args) =>
-            {
-                if (args.ButtonState == MouseButtonState.Pressed)
-                {
-                    DragMove();
-                }
-            };
-
-            return headerGrid;
+            Deactivated += (sender, args) => Close();
         }
 
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
@@ -145,7 +107,6 @@ namespace outlook_extension
             var folders = _folderService.GetCachedFolders();
             if (folders.Count == 0)
             {
-                _statusText.Text = "Keine Ordner im Cache. Bitte Ordnerliste aktualisieren.";
                 _resultsList.ItemsSource = null;
                 return;
             }
@@ -157,7 +118,6 @@ namespace outlook_extension
                 _resultsList.SelectedIndex = 0;
             }
 
-            _statusText.Text = $"{_currentResults.Count} Treffer";
         }
 
         private void OnSearchBoxKeyDown(object sender, KeyEventArgs e)
@@ -174,8 +134,14 @@ namespace outlook_extension
             }
             else if (e.Key == Key.Down && _resultsList.Items.Count > 0)
             {
-                _resultsList.Focus();
-                _resultsList.SelectedIndex = Math.Min(1, _resultsList.Items.Count - 1);
+                _resultsList.SelectedIndex = Math.Min(_resultsList.SelectedIndex + 1, _resultsList.Items.Count - 1);
+                _resultsList.ScrollIntoView(_resultsList.SelectedItem);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Up && _resultsList.Items.Count > 0)
+            {
+                _resultsList.SelectedIndex = Math.Max(_resultsList.SelectedIndex - 1, 0);
+                _resultsList.ScrollIntoView(_resultsList.SelectedItem);
                 e.Handled = true;
             }
             else if (e.Key == Key.Escape)

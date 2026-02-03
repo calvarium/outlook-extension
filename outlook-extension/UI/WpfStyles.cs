@@ -6,13 +6,13 @@ namespace outlook_extension
 {
     internal static class WpfStyles
     {
-        public static Brush GlassBackground => new SolidColorBrush(Color.FromArgb(210, 24, 24, 30));
-        public static Brush CardBackground => new SolidColorBrush(Color.FromArgb(180, 255, 255, 255));
-        public static Brush SubtleBackground => new SolidColorBrush(Color.FromArgb(60, 255, 255, 255));
-        public static Brush AccentBackground => new SolidColorBrush(Color.FromArgb(180, 90, 140, 255));
-        public static Brush AccentHoverBackground => new SolidColorBrush(Color.FromArgb(210, 120, 170, 255));
-        public static Brush TextPrimary => Brushes.White;
-        public static Brush TextSecondary => new SolidColorBrush(Color.FromArgb(200, 255, 255, 255));
+        public static Brush GlassBackground => new SolidColorBrush(Color.FromArgb(235, 20, 24, 36));
+        public static Brush CardBackground => new SolidColorBrush(Color.FromArgb(230, 28, 34, 48));
+        public static Brush SubtleBackground => new SolidColorBrush(Color.FromArgb(160, 34, 41, 58));
+        public static Brush AccentBackground => new SolidColorBrush(Color.FromArgb(220, 78, 120, 214));
+        public static Brush AccentHoverBackground => new SolidColorBrush(Color.FromArgb(230, 96, 138, 230));
+        public static Brush TextPrimary => new SolidColorBrush(Color.FromArgb(235, 240, 244, 255));
+        public static Brush TextSecondary => new SolidColorBrush(Color.FromArgb(200, 200, 210, 228));
 
         public static Button CreateIconButton(string text)
         {
@@ -42,7 +42,7 @@ namespace outlook_extension
                 Background = AccentBackground,
                 Foreground = TextPrimary,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(16, 6, 16, 6),
+                Padding = new Thickness(18, 8, 18, 8),
                 FontWeight = FontWeights.SemiBold,
                 MinHeight = 34
             };
@@ -60,8 +60,8 @@ namespace outlook_extension
                 Background = SubtleBackground,
                 Foreground = TextPrimary,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(12, 4, 12, 4),
-                MinHeight = 30
+                Padding = new Thickness(14, 6, 14, 6),
+                MinHeight = 32
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = SubtleBackground;
@@ -90,7 +90,7 @@ namespace outlook_extension
             {
                 Background = CardBackground,
                 CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(16),
+                Padding = new Thickness(18),
                 Child = content
             };
         }
@@ -101,7 +101,7 @@ namespace outlook_extension
             {
                 Background = SubtleBackground,
                 CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(10),
+                Padding = new Thickness(12),
                 Child = content
             };
         }
@@ -115,7 +115,8 @@ namespace outlook_extension
                 BorderThickness = new Thickness(0),
                 Foreground = TextPrimary,
                 FontSize = 14,
-                Padding = new Thickness(4, 2, 4, 2)
+                Padding = new Thickness(6, 4, 6, 4),
+                CaretBrush = TextPrimary
             };
         }
 
@@ -128,8 +129,8 @@ namespace outlook_extension
                 Foreground = TextPrimary
             };
             var style = new Style(typeof(ListBoxItem));
-            style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 4, 8, 4)));
-            style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(0, 2, 0, 2)));
+            style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(10, 6, 10, 6)));
+            style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(0, 4, 0, 4)));
             style.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
             style.Setters.Add(new Setter(Control.ForegroundProperty, TextPrimary));
             var selectedTrigger = new Trigger
