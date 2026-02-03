@@ -229,6 +229,7 @@
       <DependentUpon>ThisAddIn.Designer.xml</DependentUpon>
     </Compile>
     <Compile Include="UI\FolderPickerForm.cs" />
+    <Compile Include="UI\GlassStyle.cs" />
     <Compile Include="UI\QuickMoveForm.cs" />
     <Compile Include="UI\SettingsForm.cs" />
     <AppDesigner Include="Properties\" />
