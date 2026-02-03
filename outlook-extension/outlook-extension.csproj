@@ -208,6 +208,16 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="Models\FolderIdentifier.cs" />
+    <Compile Include="Models\FolderInfo.cs" />
+    <Compile Include="Models\SettingsModel.cs" />
+    <Compile Include="Ribbon\QuickMoveRibbon.cs" />
+    <Compile Include="Services\FolderService.cs" />
+    <Compile Include="Services\HotkeyService.cs" />
+    <Compile Include="Services\LoggingService.cs" />
+    <Compile Include="Services\SearchService.cs" />
+    <Compile Include="Services\SettingsService.cs" />
+    <Compile Include="Services\ShortcutParser.cs" />
     <Compile Include="ThisAddIn.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -217,6 +227,9 @@
     <Compile Include="ThisAddIn.Designer.cs">
       <DependentUpon>ThisAddIn.Designer.xml</DependentUpon>
     </Compile>
+    <Compile Include="UI\FolderPickerForm.cs" />
+    <Compile Include="UI\QuickMoveForm.cs" />
+    <Compile Include="UI\SettingsForm.cs" />
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <PropertyGroup>
