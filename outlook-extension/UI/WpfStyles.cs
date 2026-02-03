@@ -44,7 +44,11 @@ namespace outlook_extension
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(18, 8, 18, 8),
                 FontWeight = FontWeights.SemiBold,
-                MinHeight = 34
+                MinHeight = 36,
+                MinWidth = 120,
+                FontSize = 13,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = AccentBackground;
@@ -61,7 +65,11 @@ namespace outlook_extension
                 Foreground = TextPrimary,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(14, 6, 14, 6),
-                MinHeight = 32
+                MinHeight = 34,
+                MinWidth = 110,
+                FontSize = 12,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = SubtleBackground;
@@ -128,6 +136,9 @@ namespace outlook_extension
                 BorderThickness = new Thickness(0),
                 Foreground = TextPrimary
             };
+            listBox.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto);
+            listBox.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
+            listBox.Resources.Add(typeof(ScrollBar), CreateScrollBarStyle());
             var style = new Style(typeof(ListBoxItem));
             style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(10, 6, 10, 6)));
             style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(0, 4, 0, 4)));
@@ -142,6 +153,42 @@ namespace outlook_extension
             style.Triggers.Add(selectedTrigger);
             listBox.ItemContainerStyle = style;
             return listBox;
+        }
+
+        private static Style CreateScrollBarStyle()
+        {
+            var style = new Style(typeof(ScrollBar));
+            style.Setters.Add(new Setter(Control.WidthProperty, 8.0));
+            style.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+
+            var template = new ControlTemplate(typeof(ScrollBar));
+            var grid = new FrameworkElementFactory(typeof(Grid));
+            var track = new FrameworkElementFactory(typeof(Track));
+            track.Name = "PART_Track";
+
+            var decreaseRepeat = new FrameworkElementFactory(typeof(RepeatButton));
+            decreaseRepeat.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+            decreaseRepeat.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+            decreaseRepeat.SetValue(RepeatButton.CommandProperty, ScrollBar.LineUpCommand);
+
+            var increaseRepeat = new FrameworkElementFactory(typeof(RepeatButton));
+            increaseRepeat.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+            increaseRepeat.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+            increaseRepeat.SetValue(RepeatButton.CommandProperty, ScrollBar.LineDownCommand);
+
+            var thumb = new FrameworkElementFactory(typeof(Thumb));
+            thumb.SetValue(Control.BackgroundProperty, new SolidColorBrush(Color.FromArgb(160, 140, 160, 200)));
+            thumb.SetValue(Control.MarginProperty, new Thickness(0, 2, 0, 2));
+            thumb.SetValue(FrameworkElement.WidthProperty, 8.0);
+            thumb.SetValue(FrameworkElement.MinHeightProperty, 24.0);
+
+            track.SetValue(Track.DecreaseRepeatButtonProperty, decreaseRepeat);
+            track.SetValue(Track.ThumbProperty, thumb);
+            track.SetValue(Track.IncreaseRepeatButtonProperty, increaseRepeat);
+            grid.AppendChild(track);
+            template.VisualTree = grid;
+            style.Setters.Add(new Setter(Control.TemplateProperty, template));
+            return style;
         }
     }
 }

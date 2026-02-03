@@ -49,11 +49,10 @@ namespace outlook_extension
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
             _searchBox = WpfStyles.CreateTextBox();
             _searchBox.TextChanged += OnSearchTextChanged;
-            _searchBox.KeyDown += OnSearchBoxKeyDown;
+            _searchBox.PreviewKeyDown += OnSearchBoxKeyDown;
             var searchCard = WpfStyles.CreateInputCard(_searchBox);
             searchCard.Margin = new Thickness(0, 0, 0, 16);
             Grid.SetRow(searchCard, 0);

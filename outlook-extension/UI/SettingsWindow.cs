@@ -170,6 +170,8 @@ namespace outlook_extension
             var removeFavorite = WpfStyles.CreateSubtleButton("Entfernen");
             var moveUp = WpfStyles.CreateSubtleButton("▲");
             var moveDown = WpfStyles.CreateSubtleButton("▼");
+            moveUp.MinWidth = 34;
+            moveDown.MinWidth = 34;
             addFavorite.Click += OnAddFavorite;
             removeFavorite.Click += OnRemoveFavorite;
             moveUp.Click += (sender, args) => MoveFavorite(-1);

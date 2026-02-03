@@ -17,6 +17,8 @@ namespace outlook_extension
         private readonly LoggingService _loggingService;
         private readonly HotkeyWindow _hotkeyWindow;
         private bool _isRegistered;
+        private readonly Timer _retryTimer;
+        private int _retryAttempts;
 
         public HotkeyService(
             Outlook.Application application,
@@ -29,41 +31,19 @@ namespace outlook_extension
             _hotkeyAction = hotkeyAction;
             _loggingService = loggingService;
             _hotkeyWindow = new HotkeyWindow(OnHotkeyPressed);
+            _retryTimer = new Timer { Interval = 1000 };
+            _retryTimer.Tick += (sender, args) => RetryRegister();
         }
 
         public void RegisterShortcut()
         {
-            UnregisterShortcut();
-
-            var handle = GetOutlookWindowHandle();
-            if (handle == IntPtr.Zero)
-            {
-                return;
-            }
-
-            if (_hotkeyWindow.Handle != IntPtr.Zero)
-            {
-                _hotkeyWindow.ReleaseHandle();
-            }
-
-            _hotkeyWindow.AssignHandle(handle);
-
-            if (!ShortcutParser.TryParse(_settingsService.Current.Shortcut, out var modifiers, out var key))
-            {
-                return;
-            }
-
-            if (!RegisterHotKey(handle, HotkeyId, modifiers, key))
-            {
-                _loggingService.LogInfo("Hotkey Registrierung fehlgeschlagen.");
-                return;
-            }
-
-            _isRegistered = true;
+            _retryAttempts = 0;
+            AttemptRegister();
         }
 
         public void UnregisterShortcut()
         {
+            _retryTimer.Stop();
             if (!_isRegistered)
             {
                 return;
@@ -90,12 +70,67 @@ namespace outlook_extension
         public void Dispose()
         {
             UnregisterShortcut();
+            _retryTimer.Stop();
             _hotkeyWindow.ReleaseHandle();
         }
 
         private void OnHotkeyPressed()
         {
             _hotkeyAction?.Invoke();
+        }
+
+        private void RetryRegister()
+        {
+            if (_isRegistered)
+            {
+                _retryTimer.Stop();
+                return;
+            }
+
+            _retryAttempts++;
+            if (_retryAttempts > 5)
+            {
+                _retryTimer.Stop();
+                return;
+            }
+
+            AttemptRegister();
+        }
+
+        private void AttemptRegister()
+        {
+            UnregisterShortcut();
+
+            var handle = GetOutlookWindowHandle();
+            if (handle == IntPtr.Zero)
+            {
+                if (!_retryTimer.Enabled)
+                {
+                    _retryTimer.Start();
+                }
+                return;
+            }
+
+            if (_hotkeyWindow.Handle != IntPtr.Zero)
+            {
+                _hotkeyWindow.ReleaseHandle();
+            }
+
+            _hotkeyWindow.AssignHandle(handle);
+
+            if (!ShortcutParser.TryParse(_settingsService.Current.Shortcut, out var modifiers, out var key))
+            {
+                return;
+            }
+
+            if (!RegisterHotKey(handle, HotkeyId, modifiers, key))
+            {
+                _loggingService.LogInfo("Hotkey Registrierung fehlgeschlagen.");
+                return;
+            }
+
+            _isRegistered = true;
+            _retryTimer.Stop();
         }
 
         private static IntPtr GetOutlookWindowHandle()
