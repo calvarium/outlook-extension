@@ -28,7 +28,7 @@ namespace outlook_extension
             Application.Explorers.NewExplorer += OnNewExplorer;
             _stores = Application.Session.Stores;
             _stores.StoreAdd += OnStoreChanged;
-            _stores.StoreRemove += OnStoreChanged;
+            _stores.BeforeStoreRemove += OnBeforeStoreRemove;
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -39,7 +39,7 @@ namespace outlook_extension
             if (_stores != null)
             {
                 _stores.StoreAdd -= OnStoreChanged;
-                _stores.StoreRemove -= OnStoreChanged;
+                _stores.BeforeStoreRemove -= OnBeforeStoreRemove;
                 Marshal.ReleaseComObject(_stores);
                 _stores = null;
             }
@@ -174,6 +174,11 @@ namespace outlook_extension
         }
 
         private void OnStoreChanged(Outlook.Store store)
+        {
+            _folderService.RefreshCache();
+        }
+
+        private void OnBeforeStoreRemove(Outlook.Store store, ref bool cancel)
         {
             _folderService.RefreshCache();
         }
