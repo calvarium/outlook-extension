@@ -56,10 +56,9 @@ namespace outlook_extension
         {
             try
             {
-                using (var dialog = new QuickMoveForm(_folderService, _searchService, this))
-                {
-                    dialog.ShowDialog();
-                }
+                var dialog = new QuickMoveWindow(_folderService, _searchService, this);
+                SetWindowOwner(dialog);
+                dialog.ShowDialog();
             }
             catch (Exception ex)
             {
@@ -78,9 +77,23 @@ namespace outlook_extension
 
         public void OpenSettingsDialog()
         {
-            using (var dialog = new SettingsForm(_folderService, _settingsService, _hotkeyService))
+            var dialog = new SettingsWindow(_folderService, _settingsService, _hotkeyService);
+            SetWindowOwner(dialog);
+            dialog.ShowDialog();
+        }
+
+        private void SetWindowOwner(System.Windows.Window dialog)
+        {
+            try
             {
-                dialog.ShowDialog();
+                var helper = new System.Windows.Interop.WindowInteropHelper(dialog)
+                {
+                    Owner = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle
+                };
+            }
+            catch
+            {
+                // Ignore owner setup failures to avoid blocking the dialog.
             }
         }
 
