@@ -1,8 +1,10 @@
 using System;
+using System.Runtime.InteropServices;
 using Office = Microsoft.Office.Core;
 
 namespace outlook_extension
 {
+    [ComVisible(true)]
     public class QuickMoveRibbon : Office.IRibbonExtensibility
     {
         private readonly ThisAddIn _addIn;
@@ -14,10 +16,15 @@ namespace outlook_extension
 
         public string GetCustomUI(string ribbonID)
         {
+            if (ribbonID != "Microsoft.Outlook.Explorer" && ribbonID != "Microsoft.Outlook.Mail.Read")
+            {
+                return string.Empty;
+            }
+
             return @"<customUI xmlns=""http://schemas.microsoft.com/office/2009/07/customui"">
   <ribbon>
     <tabs>
-      <tab id=""QuickMoveTab"" label=""Quick Move"">
+      <tab idMso=""TabMail"">
         <group id=""QuickMoveGroup"" label=""Quick Move"">
           <button id=""QuickMoveOpen"" label=""Quick Move öffnen"" size=""large"" onAction=""OnOpenQuickMove"" />
           <button id=""QuickMoveSettings"" label=""Einstellungen"" onAction=""OnOpenSettings"" />
