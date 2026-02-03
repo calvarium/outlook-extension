@@ -74,7 +74,10 @@ namespace outlook_extension
             layout.Children.Add(header);
 
             var content = BuildContent();
-            content.Margin = new Thickness(0, 12, 0, 12);
+            if (content is FrameworkElement contentElement)
+            {
+                contentElement.Margin = new Thickness(0, 12, 0, 12);
+            }
             Grid.SetRow(content, 1);
             layout.Children.Add(content);
 
