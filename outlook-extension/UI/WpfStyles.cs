@@ -140,6 +140,7 @@ namespace outlook_extension
             listBox.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto);
             listBox.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
             listBox.Resources.Add(typeof(ScrollBar), CreateScrollBarStyle());
+            listBox.Resources.Add(typeof(Thumb), CreateThumbStyle());
             var style = new Style(typeof(ListBoxItem));
             style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(10, 6, 10, 6)));
             style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(0, 4, 0, 4)));
@@ -161,34 +162,16 @@ namespace outlook_extension
             var style = new Style(typeof(ScrollBar));
             style.Setters.Add(new Setter(Control.WidthProperty, 8.0));
             style.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+            return style;
+        }
 
-            var template = new ControlTemplate(typeof(ScrollBar));
-            var grid = new FrameworkElementFactory(typeof(Grid));
-            var track = new FrameworkElementFactory(typeof(Track));
-            track.Name = "PART_Track";
-
-            var decreaseRepeat = new FrameworkElementFactory(typeof(RepeatButton));
-            decreaseRepeat.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-            decreaseRepeat.SetValue(Control.BorderThicknessProperty, new Thickness(0));
-            decreaseRepeat.SetValue(RepeatButton.CommandProperty, ScrollBar.LineUpCommand);
-
-            var increaseRepeat = new FrameworkElementFactory(typeof(RepeatButton));
-            increaseRepeat.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-            increaseRepeat.SetValue(Control.BorderThicknessProperty, new Thickness(0));
-            increaseRepeat.SetValue(RepeatButton.CommandProperty, ScrollBar.LineDownCommand);
-
-            var thumb = new FrameworkElementFactory(typeof(Thumb));
-            thumb.SetValue(Control.BackgroundProperty, new SolidColorBrush(Color.FromArgb(160, 140, 160, 200)));
-            thumb.SetValue(Control.MarginProperty, new Thickness(0, 2, 0, 2));
-            thumb.SetValue(FrameworkElement.WidthProperty, 8.0);
-            thumb.SetValue(FrameworkElement.MinHeightProperty, 24.0);
-
-            track.SetValue(Track.DecreaseRepeatButtonProperty, decreaseRepeat);
-            track.SetValue(Track.ThumbProperty, thumb);
-            track.SetValue(Track.IncreaseRepeatButtonProperty, increaseRepeat);
-            grid.AppendChild(track);
-            template.VisualTree = grid;
-            style.Setters.Add(new Setter(Control.TemplateProperty, template));
+        private static Style CreateThumbStyle()
+        {
+            var style = new Style(typeof(Thumb));
+            style.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromArgb(160, 140, 160, 200))));
+            style.Setters.Add(new Setter(FrameworkElement.MarginProperty, new Thickness(0, 2, 0, 2)));
+            style.Setters.Add(new Setter(FrameworkElement.WidthProperty, 8.0));
+            style.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 24.0));
             return style;
         }
     }
