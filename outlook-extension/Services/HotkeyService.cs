@@ -19,6 +19,7 @@ namespace outlook_extension
         private bool _isRegistered;
         private readonly Timer _retryTimer;
         private int _retryAttempts;
+        private const int MaxRetryAttempts = 15;
 
         public HotkeyService(
             Outlook.Application application,
@@ -88,7 +89,7 @@ namespace outlook_extension
             }
 
             _retryAttempts++;
-            if (_retryAttempts > 5)
+            if (_retryAttempts > MaxRetryAttempts)
             {
                 _retryTimer.Stop();
                 return;

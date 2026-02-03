@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 
 namespace outlook_extension
 {
@@ -16,6 +17,7 @@ namespace outlook_extension
         private readonly TextBox _searchBox;
         private readonly ListBox _resultsList;
         private List<FolderInfo> _currentResults = new List<FolderInfo>();
+        private bool _isClosing;
 
         public QuickMoveWindow(FolderService folderService, SearchService searchService, ThisAddIn addIn)
         {
@@ -93,7 +95,27 @@ namespace outlook_extension
                 _searchBox.Focus();
                 UpdateResults();
             };
-            Deactivated += (sender, args) => Close();
+            Closing += (sender, args) => _isClosing = true;
+            Deactivated += (sender, args) => CloseOnDeactivate();
+        }
+
+        private void CloseOnDeactivate()
+        {
+            if (_isClosing)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_isClosing || !IsVisible)
+                {
+                    return;
+                }
+
+                _isClosing = true;
+                Close();
+            }), DispatcherPriority.Background);
         }
 
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
@@ -235,6 +257,7 @@ namespace outlook_extension
                     return;
                 }
 
+                _isClosing = true;
                 Close();
             }
         }
