@@ -94,7 +94,18 @@ namespace outlook_extension
 
         private void OnSearchBoxKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Down && _resultsList.Items.Count > 0)
+            if (e.Control && e.KeyCode == Keys.Back)
+            {
+                DeletePreviousWord();
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.Z)
+            {
+                _addIn.UndoLastMove();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Down && _resultsList.Items.Count > 0)
             {
                 _resultsList.Focus();
                 _resultsList.SelectedIndex = Math.Min(1, _resultsList.Items.Count - 1);
@@ -118,6 +129,18 @@ namespace outlook_extension
                 Close();
                 e.Handled = true;
             }
+            else if (e.Control && e.KeyCode == Keys.Back)
+            {
+                _searchBox.Focus();
+                DeletePreviousWord();
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.Z)
+            {
+                _addIn.UndoLastMove();
+                e.Handled = true;
+            }
             else if (e.KeyCode == Keys.Enter)
             {
                 MoveSelectedFolder(e.Control);
@@ -136,6 +159,30 @@ namespace outlook_extension
             _searchBox.AppendText(e.KeyChar.ToString());
             _searchBox.SelectionStart = _searchBox.Text.Length;
             e.Handled = true;
+        }
+
+        private void DeletePreviousWord()
+        {
+            var text = _searchBox.Text;
+            var caret = _searchBox.SelectionStart;
+            if (caret == 0)
+            {
+                return;
+            }
+
+            var deleteFrom = caret - 1;
+            while (deleteFrom > 0 && char.IsWhiteSpace(text[deleteFrom]))
+            {
+                deleteFrom--;
+            }
+
+            while (deleteFrom > 0 && !char.IsWhiteSpace(text[deleteFrom - 1]))
+            {
+                deleteFrom--;
+            }
+
+            _searchBox.Text = text.Remove(deleteFrom, caret - deleteFrom);
+            _searchBox.SelectionStart = deleteFrom;
         }
 
         private void OnResultsDoubleClick(object sender, EventArgs e)

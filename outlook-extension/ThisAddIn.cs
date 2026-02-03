@@ -168,6 +168,29 @@ namespace outlook_extension
             }
         }
 
+        public void UndoLastMove()
+        {
+            try
+            {
+                var explorer = Application.ActiveExplorer();
+                if (explorer != null)
+                {
+                    explorer.CommandBars.ExecuteMso("Undo");
+                    return;
+                }
+
+                var inspector = Application.ActiveInspector();
+                if (inspector != null)
+                {
+                    inspector.CommandBars.ExecuteMso("Undo");
+                }
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("UndoLastMove", ex);
+            }
+        }
+
         private void OnNewExplorer(Outlook.Explorer explorer)
         {
             _hotkeyService.RegisterShortcut();
