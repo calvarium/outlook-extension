@@ -56,6 +56,7 @@ namespace outlook_extension
             _searchBox.TextChanged += OnSearchTextChanged;
             _searchBox.KeyDown += OnSearchBoxKeyDown;
             _resultsList.KeyDown += OnResultsKeyDown;
+            _resultsList.KeyPress += OnResultsKeyPress;
             _resultsList.DoubleClick += OnResultsDoubleClick;
             Shown += OnShown;
         }
@@ -96,7 +97,7 @@ namespace outlook_extension
             if (e.KeyCode == Keys.Down && _resultsList.Items.Count > 0)
             {
                 _resultsList.Focus();
-                _resultsList.SelectedIndex = 0;
+                _resultsList.SelectedIndex = Math.Min(1, _resultsList.Items.Count - 1);
                 e.Handled = true;
             }
             else if (e.KeyCode == Keys.Escape)
@@ -122,6 +123,19 @@ namespace outlook_extension
                 MoveSelectedFolder(e.Control);
                 e.Handled = true;
             }
+        }
+
+        private void OnResultsKeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar))
+            {
+                return;
+            }
+
+            _searchBox.Focus();
+            _searchBox.AppendText(e.KeyChar.ToString());
+            _searchBox.SelectionStart = _searchBox.Text.Length;
+            e.Handled = true;
         }
 
         private void OnResultsDoubleClick(object sender, EventArgs e)
