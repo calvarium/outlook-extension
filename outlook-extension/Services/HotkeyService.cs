@@ -41,6 +41,11 @@ namespace outlook_extension
                 return;
             }
 
+            if (_hotkeyWindow.Handle != IntPtr.Zero)
+            {
+                _hotkeyWindow.ReleaseHandle();
+            }
+
             _hotkeyWindow.AssignHandle(handle);
 
             if (!ShortcutParser.TryParse(_settingsService.Current.Shortcut, out var modifiers, out var key))
