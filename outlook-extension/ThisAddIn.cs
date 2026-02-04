@@ -113,7 +113,7 @@ namespace outlook_extension
                 var explorer = Application.ActiveExplorer();
                 if (explorer != null)
                 {
-                    var explorerHandle = new IntPtr(explorer.Hwnd);
+                    var explorerHandle = new IntPtr(explorer.HWND);
                     if (explorerHandle != IntPtr.Zero)
                     {
                         return explorerHandle;
@@ -130,7 +130,7 @@ namespace outlook_extension
                 var inspector = Application.ActiveInspector();
                 if (inspector != null)
                 {
-                    var inspectorHandle = new IntPtr(inspector.Hwnd);
+                    var inspectorHandle = new IntPtr(inspector.HWND);
                     if (inspectorHandle != IntPtr.Zero)
                     {
                         return inspectorHandle;
