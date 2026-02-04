@@ -72,8 +72,8 @@ namespace outlook_extension.UI.Services
             }
 
             var source = theme == ApplicationTheme.Dark
-                ? new Uri("pack://application:,,,/outlook-extension;component/UI/Resources/Theme.Dark.xaml")
-                : new Uri("pack://application:,,,/outlook-extension;component/UI/Resources/Theme.Light.xaml");
+                ? new Uri("UI/Resources/Theme.Dark.xaml", UriKind.Relative)
+                : new Uri("UI/Resources/Theme.Light.xaml", UriKind.Relative);
 
             var merged = Application.Current.Resources.MergedDictionaries;
             var existing = merged.FirstOrDefault(dictionary =>

@@ -7,7 +7,7 @@ namespace outlook_extension.UI.Services
     public static class UiApplicationBootstrapper
     {
         private static readonly Uri AppResourcesUri =
-            new Uri("pack://application:,,,/outlook-extension;component/UI/Resources/AppResources.xaml");
+            new Uri("UI/Resources/AppResources.xaml", UriKind.Relative);
 
         public static void EnsureApplication()
         {
