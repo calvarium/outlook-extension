@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Windows;
 using Office = Microsoft.Office.Core;
 using Outlook = Microsoft.Office.Interop.Outlook;
+using outlook_extension.UI.Services;
+using outlook_extension.UI.ViewModels;
+using outlook_extension.UI.Views;
 
 namespace outlook_extension
 {
@@ -56,19 +60,20 @@ namespace outlook_extension
         {
             try
             {
-                using (var dialog = new QuickMoveForm(_folderService, _searchService, this))
-                {
-                    dialog.ShowDialog();
-                }
+                UiApplicationBootstrapper.EnsureApplication();
+                var themeService = new ThemeService();
+                var viewModel = new QuickMoveViewModel(_folderService, _searchService, MoveSelectionToFolder, UndoLastMove);
+                var dialog = new QuickMoveWindow(viewModel, themeService, _settingsService);
+                dialog.ShowDialog();
             }
             catch (Exception ex)
             {
                 _loggingService.LogError("QuickMoveDialog", ex);
-                System.Windows.Forms.MessageBox.Show(
+                MessageBox.Show(
                     "Der Quick-Move-Dialog konnte nicht geöffnet werden.",
                     "Quick Move",
-                    System.Windows.Forms.MessageBoxButtons.OK,
-                    System.Windows.Forms.MessageBoxIcon.Error);
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 
@@ -78,10 +83,21 @@ namespace outlook_extension
 
         public void OpenSettingsDialog()
         {
-            using (var dialog = new SettingsForm(_folderService, _settingsService, _hotkeyService))
-            {
-                dialog.ShowDialog();
-            }
+            UiApplicationBootstrapper.EnsureApplication();
+            var themeService = new ThemeService();
+            var pickerDialogService = new FolderPickerDialogService(
+                _folderService,
+                _searchService,
+                _settingsService,
+                themeService);
+            var viewModel = new SettingsViewModel(
+                _folderService,
+                _settingsService,
+                _hotkeyService,
+                pickerDialogService,
+                themeService);
+            var dialog = new SettingsWindow(viewModel, themeService, _settingsService);
+            dialog.ShowDialog();
         }
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)
@@ -97,11 +113,11 @@ namespace outlook_extension
                 folder = _folderService.ResolveFolder(targetFolder);
                 if (folder == null)
                 {
-                    System.Windows.Forms.MessageBox.Show(
+                    MessageBox.Show(
                         "Der Zielordner konnte nicht gefunden werden.",
                         "Quick Move",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Warning);
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
                     return false;
                 }
 
@@ -136,11 +152,11 @@ namespace outlook_extension
 
                 if (movedCount == 0)
                 {
-                    System.Windows.Forms.MessageBox.Show(
+                    MessageBox.Show(
                         "Keine verschiebbaren E-Mails gefunden.",
                         "Quick Move",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Information);
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                     return false;
                 }
 
@@ -152,11 +168,11 @@ namespace outlook_extension
             catch (Exception ex)
             {
                 _loggingService.LogError("MoveSelectionToFolder", ex);
-                System.Windows.Forms.MessageBox.Show(
+                MessageBox.Show(
                     "Beim Verschieben ist ein Fehler aufgetreten.",
                     "Quick Move",
-                    System.Windows.Forms.MessageBoxButtons.OK,
-                    System.Windows.Forms.MessageBoxIcon.Error);
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
                 return false;
             }
             finally

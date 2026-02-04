@@ -1,0 +1,79 @@
+<Window x:Class="outlook_extension.UI.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:models="clr-namespace:outlook_extension"
+        Title="Quick Move Einstellungen"
+        Width="720"
+        Height="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <ui:CardControl Header="Shortcut" Margin="0,0,0,12">
+                    <ui:TextBox Text="{Binding Shortcut}"
+                                IsReadOnly="True"
+                                PreviewKeyDown="OnShortcutKeyDown" />
+                </ui:CardControl>
+
+                <ui:CardControl Header="Favoriten" Margin="0,0,0,12">
+                    <StackPanel>
+                        <ui:ListView ItemsSource="{Binding Favorites}"
+                                     SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
+                                     DisplayMemberPath="Label"
+                                     Height="180" />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <ui:Button Content="Hinzufügen" Click="OnAddFavorite" />
+                            <ui:Button Content="Entfernen" Click="OnRemoveFavorite" />
+                            <ui:Button Content="▲" Click="OnMoveFavoriteUp" />
+                            <ui:Button Content="▼" Click="OnMoveFavoriteDown" />
+                        </StackPanel>
+                    </StackPanel>
+                </ui:CardControl>
+
+                <ui:CardControl Header="Suche" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource PrimaryTextStyle}" Width="220" Text="Anzahl letzte Ziele" />
+                            <ui:NumberBox Value="{Binding MaxRecents, Mode=TwoWay}" Minimum="1" Maximum="50" Width="120" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Margin="0,8,0,0"
+                                         IsChecked="{Binding ShowInboxOnly, Mode=TwoWay}"
+                                         OnContent="Nur Unterordner von Posteingang anzeigen"
+                                         OffContent="Alle Ordner anzeigen" />
+                        <ui:ToggleSwitch Margin="0,8,0,0"
+                                         IsChecked="{Binding IncludeArchives, Mode=TwoWay}"
+                                         OnContent="Archive einbeziehen"
+                                         OffContent="Archive ausblenden" />
+                    </StackPanel>
+                </ui:CardControl>
+
+                <ui:CardControl Header="Theme" Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource PrimaryTextStyle}" Width="220" Text="Erscheinungsbild" />
+                        <ComboBox Width="200"
+                                  SelectedValue="{Binding ThemePreference, Mode=TwoWay}"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="System" Tag="{x:Static models:ThemePreference.System}" />
+                            <ComboBoxItem Content="Hell" Tag="{x:Static models:ThemePreference.Light}" />
+                            <ComboBoxItem Content="Dunkel" Tag="{x:Static models:ThemePreference.Dark}" />
+                        </ComboBox>
+                    </StackPanel>
+                </ui:CardControl>
+
+                <ui:Button Content="Ordnerliste neu laden" Click="OnRefreshCache" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <ui:Button Content="Speichern" Click="OnSave" />
+            <ui:Button Content="Abbrechen" Click="OnCancel" />
+        </StackPanel>
+    </Grid>
+</Window>
