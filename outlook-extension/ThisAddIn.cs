@@ -84,12 +84,19 @@ namespace outlook_extension
 
         private void SetWindowOwner(System.Windows.Window dialog)
         {
-            dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
             try
             {
+                var ownerHandle = GetOutlookWindowHandle();
+                if (ownerHandle == IntPtr.Zero)
+                {
+                    dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                    return;
+                }
+
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
                 var helper = new System.Windows.Interop.WindowInteropHelper(dialog)
                 {
-                    Owner = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle
+                    Owner = ownerHandle
                 };
             }
             catch
@@ -98,6 +105,54 @@ namespace outlook_extension
                 // Ignore owner setup failures to avoid blocking the dialog.
             }
         }
+
+        private IntPtr GetOutlookWindowHandle()
+        {
+            try
+            {
+                var explorer = Application.ActiveExplorer();
+                if (explorer != null)
+                {
+                    var explorerHandle = new IntPtr(explorer.Hwnd);
+                    if (explorerHandle != IntPtr.Zero)
+                    {
+                        return explorerHandle;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore explorer handle errors.
+            }
+
+            try
+            {
+                var inspector = Application.ActiveInspector();
+                if (inspector != null)
+                {
+                    var inspectorHandle = new IntPtr(inspector.Hwnd);
+                    if (inspectorHandle != IntPtr.Zero)
+                    {
+                        return inspectorHandle;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore inspector handle errors.
+            }
+
+            var processHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            if (processHandle != IntPtr.Zero)
+            {
+                return processHandle;
+            }
+
+            return GetForegroundWindow();
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)
         {

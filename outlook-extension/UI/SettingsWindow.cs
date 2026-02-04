@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 
 namespace outlook_extension
@@ -320,7 +321,9 @@ namespace outlook_extension
         {
             using (var picker = new FolderPickerForm(_folderService, new SearchService(_settingsService)))
             {
-                if (picker.ShowDialog() == System.Windows.Forms.DialogResult.OK && picker.SelectedFolder != null)
+                var owner = GetDialogOwner();
+                var result = owner == null ? picker.ShowDialog() : picker.ShowDialog(owner);
+                if (result == System.Windows.Forms.DialogResult.OK && picker.SelectedFolder != null)
                 {
                     _settingsService.AddFavorite(picker.SelectedFolder);
                     RefreshFavorites();
@@ -364,6 +367,27 @@ namespace outlook_extension
                 .ToList();
 
             _favoritesList.ItemsSource = favorites;
+        }
+
+        private System.Windows.Forms.IWin32Window GetDialogOwner()
+        {
+            var helper = new WindowInteropHelper(this);
+            if (helper.Handle == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            return new Win32Window(helper.Handle);
+        }
+
+        private sealed class Win32Window : System.Windows.Forms.IWin32Window
+        {
+            public Win32Window(IntPtr handle)
+            {
+                Handle = handle;
+            }
+
+            public IntPtr Handle { get; }
         }
 
         private string ResolveFolderLabel(FolderIdentifier identifier)
