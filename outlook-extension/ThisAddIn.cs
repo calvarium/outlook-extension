@@ -93,10 +93,11 @@ namespace outlook_extension
                     return;
                 }
 
-                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
                 var helper = new System.Windows.Interop.WindowInteropHelper(dialog);
                 helper.EnsureHandle();
                 helper.Owner = ownerHandle;
+                CenterDialogOnOwner(dialog, ownerHandle);
             }
             catch
             {
@@ -128,6 +129,9 @@ namespace outlook_extension
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+
         private static bool IsOutlookWindow(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
@@ -150,6 +154,40 @@ namespace outlook_extension
             {
                 return false;
             }
+        }
+
+        private static void CenterDialogOnOwner(System.Windows.Window dialog, IntPtr ownerHandle)
+        {
+            if (ownerHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            if (!GetWindowRect(ownerHandle, out var ownerRect))
+            {
+                return;
+            }
+
+            var dialogWidth = dialog.Width;
+            var dialogHeight = dialog.Height;
+            if (dialogWidth <= 0 || dialogHeight <= 0)
+            {
+                return;
+            }
+
+            var ownerWidth = ownerRect.Right - ownerRect.Left;
+            var ownerHeight = ownerRect.Bottom - ownerRect.Top;
+            dialog.Left = ownerRect.Left + (ownerWidth - dialogWidth) / 2;
+            dialog.Top = ownerRect.Top + (ownerHeight - dialogHeight) / 2;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
         }
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)
