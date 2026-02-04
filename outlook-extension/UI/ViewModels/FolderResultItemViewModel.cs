@@ -13,7 +13,22 @@ namespace outlook_extension.UI.ViewModels
 
         public string DisplayName => Info?.DisplayName ?? string.Empty;
 
-        public string DisplayPath\n+        {\n+            get\n+            {\n+                if (Info == null)\n+                {\n+                    return string.Empty;\n+                }\n+\n+                var mailbox = Info.MailboxName ?? string.Empty;\n+                var path = Info.FolderPath ?? string.Empty;\n+                return string.IsNullOrWhiteSpace(mailbox)\n+                    ? path\n+                    : $\"{mailbox} {path}\".Trim();\n+            }\n+        }
+        public string DisplayPath
+        {
+            get
+            {
+                if (Info == null)
+                {
+                    return string.Empty;
+                }
+
+                var mailbox = Info.MailboxName ?? string.Empty;
+                var path = Info.FolderPath ?? string.Empty;
+                return string.IsNullOrWhiteSpace(mailbox)
+                    ? path
+                    : $"{mailbox} {path}".Trim();
+            }
+        }
 
         public bool IsSelected
         {
