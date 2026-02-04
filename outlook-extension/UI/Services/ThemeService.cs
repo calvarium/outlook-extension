@@ -76,8 +76,8 @@ namespace outlook_extension.UI.Services
             }
 
             var source = theme == ApplicationTheme.Dark
-                ? BuildPackUri("UI/Resources/Theme.Dark.xaml")
-                : BuildPackUri("UI/Resources/Theme.Light.xaml");
+                ? new Uri("UI/Resources/Theme.Dark.xaml", UriKind.Relative)
+                : new Uri("UI/Resources/Theme.Light.xaml", UriKind.Relative);
 
             var merged = Application.Current.Resources.MergedDictionaries;
             var existing = merged.FirstOrDefault(dictionary =>
@@ -95,10 +95,5 @@ namespace outlook_extension.UI.Services
             }
         }
 
-        private static Uri BuildPackUri(string relativePath)
-        {
-            var assemblyName = typeof(ThemeService).Assembly.GetName().Name;
-            return new Uri($"pack://application:,,,/{assemblyName};component/{relativePath}", UriKind.Absolute);
-        }
     }
 }
