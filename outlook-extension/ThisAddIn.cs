@@ -332,6 +332,10 @@ namespace outlook_extension
             }
 
             _hotkeyService.RegisterShortcut();
+            if (_hotkeyService.IsRegistered)
+            {
+                ((Outlook.ExplorerEvents_10_Event)explorer).Activate -= OnExplorerActivate;
+            }
         }
 
         private void OnStoreChanged(Outlook.Store store)
