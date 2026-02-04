@@ -94,13 +94,9 @@ namespace outlook_extension
                 }
 
                 dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
-                dialog.SourceInitialized += (sender, args) =>
-                {
-                    var helper = new System.Windows.Interop.WindowInteropHelper(dialog)
-                    {
-                        Owner = ownerHandle
-                    };
-                };
+                var helper = new System.Windows.Interop.WindowInteropHelper(dialog);
+                helper.EnsureHandle();
+                helper.Owner = ownerHandle;
             }
             catch
             {
