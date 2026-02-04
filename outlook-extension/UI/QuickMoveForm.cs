@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace outlook_extension
@@ -24,34 +26,100 @@ namespace outlook_extension
             _addIn = addIn;
 
             Text = "Quick Move";
-            Width = 600;
-            Height = 420;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
+            Width = 640;
+            Height = 460;
             MaximizeBox = false;
             MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterParent;
+            GlassStyle.ApplyFormStyle(this);
 
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var headerPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Height = 56
+            };
+            var titleStack = new TableLayoutPanel
+            {
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            titleStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            titleStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var titleLabel = new Label
+            {
+                Text = "Quick Move",
+                Font = new Font("Segoe UI Semibold", 16F, FontStyle.Bold, GraphicsUnit.Point),
+                ForeColor = Color.White,
+                AutoSize = true
+            };
+            var subtitleLabel = new Label
+            {
+                Text = "Schnell verschieben, klar & fokussiert",
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point),
+                ForeColor = Color.FromArgb(210, 255, 255, 255),
+                AutoSize = true
+            };
+            titleStack.Controls.Add(titleLabel, 0, 0);
+            titleStack.Controls.Add(subtitleLabel, 0, 1);
+            var closeButton = new Button
+            {
+                Text = "✕",
+                Width = 36,
+                Height = 36,
+                Dock = DockStyle.Right
+            };
+            GlassStyle.StyleSubtleButton(closeButton);
+            closeButton.Click += (sender, args) => Close();
+            headerPanel.Controls.Add(closeButton);
+            headerPanel.Controls.Add(titleStack);
+            GlassStyle.EnableDrag(headerPanel);
+
+            var searchContainer = GlassStyle.CreateInputPanel();
+            searchContainer.MinimumSize = new Size(0, 44);
             _searchBox = new TextBox
             {
-                Dock = DockStyle.Top
+                Dock = DockStyle.Fill
             };
+            GlassStyle.StyleTextInput(_searchBox);
+            searchContainer.Controls.Add(_searchBox);
 
             _resultsList = new ListBox
             {
                 Dock = DockStyle.Fill,
                 DisplayMember = nameof(FolderInfo.DisplayText)
             };
+            GlassStyle.StyleListBox(_resultsList);
+            _resultsList.DrawItem += OnResultsDrawItem;
+
+            var resultsCard = GlassStyle.CreateGlassCard(18, 10);
+            resultsCard.Controls.Add(_resultsList);
 
             _statusLabel = new Label
             {
-                Dock = DockStyle.Bottom,
+                Dock = DockStyle.Fill,
                 Height = 24,
-                TextAlign = System.Drawing.ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(210, 255, 255, 255)
             };
 
-            Controls.Add(_resultsList);
-            Controls.Add(_searchBox);
-            Controls.Add(_statusLabel);
+            layout.Controls.Add(headerPanel, 0, 0);
+            layout.Controls.Add(searchContainer, 0, 1);
+            layout.Controls.Add(resultsCard, 0, 2);
+            layout.Controls.Add(_statusLabel, 0, 3);
+
+            Controls.Add(layout);
 
             _searchBox.TextChanged += OnSearchTextChanged;
             _searchBox.KeyDown += OnSearchBoxKeyDown;
@@ -159,6 +227,35 @@ namespace outlook_extension
             _searchBox.AppendText(e.KeyChar.ToString());
             _searchBox.SelectionStart = _searchBox.Text.Length;
             e.Handled = true;
+        }
+
+        private void OnResultsDrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0)
+            {
+                return;
+            }
+
+            e.DrawBackground();
+            var item = _resultsList.Items[e.Index];
+            var text = item is FolderInfo info ? info.DisplayText : item?.ToString();
+            var bounds = e.Bounds;
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            using (var background = new SolidBrush(selected
+                       ? Color.FromArgb(120, 100, 170, 255)
+                       : Color.FromArgb(20, 255, 255, 255)))
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.FillRectangle(background, bounds);
+            }
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                text,
+                _resultsList.Font,
+                new Rectangle(bounds.X + 10, bounds.Y + 6, bounds.Width - 20, bounds.Height - 12),
+                Color.White,
+                TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
         }
 
         private void DeletePreviousWord()

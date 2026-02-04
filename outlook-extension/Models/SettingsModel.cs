@@ -7,7 +7,7 @@ namespace outlook_extension
     public class SettingsModel
     {
         [DataMember(Order = 1)]
-        public string Shortcut { get; set; } = "Ctrl+Shift+M";
+        public string Shortcut { get; set; } = "Alt+Shift+M";
 
         [DataMember(Order = 2)]
         public List<FolderIdentifier> Favorites { get; set; } = new List<FolderIdentifier>();

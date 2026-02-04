@@ -101,10 +101,14 @@
   -->
   <ItemGroup>
     <Reference Include="Accessibility" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="WindowsBase" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Core" />
@@ -229,8 +233,12 @@
       <DependentUpon>ThisAddIn.Designer.xml</DependentUpon>
     </Compile>
     <Compile Include="UI\FolderPickerForm.cs" />
+    <Compile Include="UI\GlassStyle.cs" />
     <Compile Include="UI\QuickMoveForm.cs" />
     <Compile Include="UI\SettingsForm.cs" />
+    <Compile Include="UI\QuickMoveWindow.cs" />
+    <Compile Include="UI\SettingsWindow.cs" />
+    <Compile Include="UI\WpfStyles.cs" />
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <PropertyGroup>

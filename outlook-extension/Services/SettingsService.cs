@@ -40,6 +40,12 @@ namespace outlook_extension
                     var serializer = new DataContractJsonSerializer(typeof(SettingsModel));
                     Current = (SettingsModel)serializer.ReadObject(stream);
                 }
+
+                if (string.IsNullOrWhiteSpace(Current.Shortcut))
+                {
+                    Current.Shortcut = "Alt+Shift+M";
+                    Save();
+                }
             }
             catch (Exception ex)
             {
