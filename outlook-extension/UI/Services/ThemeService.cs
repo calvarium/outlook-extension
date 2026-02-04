@@ -78,7 +78,7 @@ namespace outlook_extension.UI.Services
             var merged = Application.Current.Resources.MergedDictionaries;
             var existing = merged.FirstOrDefault(dictionary =>
                 dictionary.Source != null &&
-                dictionary.Source.OriginalString.Contains("Theme.", StringComparison.OrdinalIgnoreCase));
+                dictionary.Source.OriginalString.IndexOf("Theme.", StringComparison.OrdinalIgnoreCase) >= 0);
 
             if (existing != null)
             {

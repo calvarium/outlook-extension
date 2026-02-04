@@ -25,7 +25,7 @@ namespace outlook_extension.UI.Services
             var dictionaries = Application.Current.Resources.MergedDictionaries;
             var hasResources = dictionaries.Any(dictionary =>
                 dictionary.Source != null &&
-                dictionary.Source.OriginalString.Contains("AppResources.xaml", StringComparison.OrdinalIgnoreCase));
+                dictionary.Source.OriginalString.IndexOf("AppResources.xaml", StringComparison.OrdinalIgnoreCase) >= 0);
 
             if (!hasResources)
             {
