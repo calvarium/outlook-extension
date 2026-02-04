@@ -315,7 +315,7 @@ namespace outlook_extension
                 return;
             }
 
-            explorer.Activate += OnExplorerActivate;
+            ((Outlook.ExplorerEvents_10_Event)explorer).Activate += OnExplorerActivate;
             TryRegisterHotkey(explorer);
         }
 
@@ -331,7 +331,7 @@ namespace outlook_extension
                 return;
             }
 
-            var handle = new IntPtr(explorer.Hwnd);
+            var handle = new IntPtr(explorer.HWND);
             if (handle != IntPtr.Zero)
             {
                 _hotkeyService.RegisterShortcut(handle);
