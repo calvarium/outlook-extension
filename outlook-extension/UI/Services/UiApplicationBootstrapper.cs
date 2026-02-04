@@ -17,14 +17,14 @@ namespace outlook_extension.UI.Services
                     ShutdownMode = ShutdownMode.OnExplicitShutdown
                 };
 
-                application.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
+                Application.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = AppResourcesUri });
                 return;
             }
 
-            if (Application.Current.ResourceAssembly == null)
+            if (Application.ResourceAssembly == null)
             {
-                Application.Current.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
+                Application.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
             }
 
             var dictionaries = Application.Current.Resources.MergedDictionaries;

@@ -23,9 +23,9 @@ namespace outlook_extension.UI.Services
         public void ApplyTheme(ThemePreference preference)
         {
             var theme = ResolveApplicationTheme(preference);
-            if (Application.Current != null && Application.Current.ResourceAssembly == null)
+            if (Application.Current != null && Application.ResourceAssembly == null)
             {
-                Application.Current.ResourceAssembly = typeof(ThemeService).Assembly;
+                Application.ResourceAssembly = typeof(ThemeService).Assembly;
             }
             ApplicationThemeManager.Apply(theme);
             UpdateThemeResources(theme);
