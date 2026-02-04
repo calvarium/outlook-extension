@@ -6,8 +6,7 @@ namespace outlook_extension.UI.Services
 {
     public static class UiApplicationBootstrapper
     {
-        private static readonly Uri AppResourcesUri =
-            new Uri("UI/Resources/AppResources.xaml", UriKind.Relative);
+        private static readonly Uri AppResourcesUri = BuildPackUri("UI/Resources/AppResources.xaml");
 
         public static void EnsureApplication()
         {
@@ -18,8 +17,14 @@ namespace outlook_extension.UI.Services
                     ShutdownMode = ShutdownMode.OnExplicitShutdown
                 };
 
+                application.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = AppResourcesUri });
                 return;
+            }
+
+            if (Application.Current.ResourceAssembly == null)
+            {
+                Application.Current.ResourceAssembly = typeof(UiApplicationBootstrapper).Assembly;
             }
 
             var dictionaries = Application.Current.Resources.MergedDictionaries;
@@ -31,6 +36,12 @@ namespace outlook_extension.UI.Services
             {
                 dictionaries.Add(new ResourceDictionary { Source = AppResourcesUri });
             }
+        }
+
+        private static Uri BuildPackUri(string relativePath)
+        {
+            var assemblyName = typeof(UiApplicationBootstrapper).Assembly.GetName().Name;
+            return new Uri($"pack://application:,,,/{assemblyName};component/{relativePath}", UriKind.Absolute);
         }
     }
 }

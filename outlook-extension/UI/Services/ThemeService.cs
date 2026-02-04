@@ -23,6 +23,10 @@ namespace outlook_extension.UI.Services
         public void ApplyTheme(ThemePreference preference)
         {
             var theme = ResolveApplicationTheme(preference);
+            if (Application.Current != null && Application.Current.ResourceAssembly == null)
+            {
+                Application.Current.ResourceAssembly = typeof(ThemeService).Assembly;
+            }
             ApplicationThemeManager.Apply(theme);
             UpdateThemeResources(theme);
         }
@@ -72,8 +76,8 @@ namespace outlook_extension.UI.Services
             }
 
             var source = theme == ApplicationTheme.Dark
-                ? new Uri("UI/Resources/Theme.Dark.xaml", UriKind.Relative)
-                : new Uri("UI/Resources/Theme.Light.xaml", UriKind.Relative);
+                ? BuildPackUri("UI/Resources/Theme.Dark.xaml")
+                : BuildPackUri("UI/Resources/Theme.Light.xaml");
 
             var merged = Application.Current.Resources.MergedDictionaries;
             var existing = merged.FirstOrDefault(dictionary =>
@@ -89,6 +93,12 @@ namespace outlook_extension.UI.Services
             {
                 merged.Add(new ResourceDictionary { Source = source });
             }
+        }
+
+        private static Uri BuildPackUri(string relativePath)
+        {
+            var assemblyName = typeof(ThemeService).Assembly.GetName().Name;
+            return new Uri($"pack://application:,,,/{assemblyName};component/{relativePath}", UriKind.Absolute);
         }
     }
 }
