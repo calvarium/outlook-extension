@@ -217,9 +217,9 @@ namespace outlook_extension
                 if (selection != null && selection.Count > 0)
                 {
                     var itemsToMove = new List<Outlook.MailItem>();
-                    for (var index = 1; index <= selection.Count; index++)
+                    foreach (var item in selection)
                     {
-                        var mailItem = selection[index] as Outlook.MailItem;
+                        var mailItem = item as Outlook.MailItem;
                         if (mailItem != null)
                         {
                             itemsToMove.Add(mailItem);
