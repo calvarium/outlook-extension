@@ -56,10 +56,14 @@ namespace outlook_extension
         {
             try
             {
-                using (var dialog = new QuickMoveForm(_folderService, _searchService, this))
+                UI.Wpf.WpfUiAppHost.EnsureInitialized(_settingsService);
+                var viewModel = new UI.Wpf.ViewModels.QuickMoveViewModel(_folderService, _searchService, this);
+                var dialog = new UI.Wpf.Views.QuickMoveWindow
                 {
-                    dialog.ShowDialog();
-                }
+                    DataContext = viewModel
+                };
+                viewModel.CloseRequested = () => dialog.Close();
+                dialog.ShowDialog();
             }
             catch (Exception ex)
             {
@@ -78,10 +82,31 @@ namespace outlook_extension
 
         public void OpenSettingsDialog()
         {
-            using (var dialog = new SettingsForm(_folderService, _settingsService, _hotkeyService))
+            UI.Wpf.WpfUiAppHost.EnsureInitialized(_settingsService);
+            var viewModel = new UI.Wpf.ViewModels.SettingsViewModel(_folderService, _settingsService, _hotkeyService);
+            var dialog = new UI.Wpf.Views.SettingsWindow
             {
-                dialog.ShowDialog();
-            }
+                DataContext = viewModel
+            };
+            viewModel.PickFolder = () =>
+            {
+                var pickerViewModel = new UI.Wpf.ViewModels.FolderPickerViewModel(
+                    _folderService,
+                    new SearchService(_settingsService));
+                var picker = new UI.Wpf.Views.FolderPickerWindow
+                {
+                    DataContext = pickerViewModel,
+                    Owner = dialog
+                };
+
+                FolderInfo selected = null;
+                pickerViewModel.SelectionConfirmed = folder => selected = folder;
+                pickerViewModel.CloseRequested = () => picker.Close();
+                picker.ShowDialog();
+                return selected;
+            };
+            viewModel.CloseRequested = () => dialog.Close();
+            dialog.ShowDialog();
         }
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)

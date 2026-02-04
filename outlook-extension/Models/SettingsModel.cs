@@ -26,5 +26,8 @@ namespace outlook_extension
 
         [DataMember(Order = 7)]
         public string LogLevel { get; set; } = "Info";
+
+        [DataMember(Order = 8)]
+        public string ThemeMode { get; set; } = "System";
     }
 }

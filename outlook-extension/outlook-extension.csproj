@@ -104,8 +104,12 @@
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="WindowsBase" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -189,6 +193,9 @@
     can be found.
   -->
   <ItemGroup>
+    <PackageReference Include="Wpf.Ui" Version="2.1.0" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -228,10 +235,50 @@
     <Compile Include="ThisAddIn.Designer.cs">
       <DependentUpon>ThisAddIn.Designer.xml</DependentUpon>
     </Compile>
-    <Compile Include="UI\FolderPickerForm.cs" />
-    <Compile Include="UI\QuickMoveForm.cs" />
-    <Compile Include="UI\SettingsForm.cs" />
+    <Compile Include="UI\Wpf\Controls\SearchBarControl.xaml.cs">
+      <DependentUpon>SearchBarControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Wpf\Infrastructure\RelayCommand.cs" />
+    <Compile Include="UI\Wpf\Infrastructure\RelayCommandOfT.cs" />
+    <Compile Include="UI\Wpf\Infrastructure\ViewModelBase.cs" />
+    <Compile Include="UI\Wpf\ViewModels\FavoriteItemViewModel.cs" />
+    <Compile Include="UI\Wpf\ViewModels\FolderPickerViewModel.cs" />
+    <Compile Include="UI\Wpf\ViewModels\QuickMoveViewModel.cs" />
+    <Compile Include="UI\Wpf\ViewModels\SearchResultViewModel.cs" />
+    <Compile Include="UI\Wpf\ViewModels\SettingsViewModel.cs" />
+    <Compile Include="UI\Wpf\Views\FolderPickerWindow.xaml.cs">
+      <DependentUpon>FolderPickerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Wpf\Views\QuickMoveWindow.xaml.cs">
+      <DependentUpon>QuickMoveWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Wpf\Views\SettingsWindow.xaml.cs">
+      <DependentUpon>SettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Wpf\WpfUiAppHost.cs" />
     <AppDesigner Include="Properties\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="UI\Wpf\Controls\SearchBarControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="UI\Wpf\Resources\Controls.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="UI\Wpf\Views\FolderPickerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="UI\Wpf\Views\QuickMoveWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="UI\Wpf\Views\SettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
