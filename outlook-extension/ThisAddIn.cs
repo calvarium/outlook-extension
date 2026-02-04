@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Office = Microsoft.Office.Core;
 using Outlook = Microsoft.Office.Interop.Outlook;
@@ -215,14 +216,18 @@ namespace outlook_extension
                 var selection = Application.ActiveExplorer()?.Selection;
                 if (selection != null && selection.Count > 0)
                 {
-                    foreach (object item in selection)
+                    var itemsToMove = new List<Outlook.MailItem>();
+                    foreach (var item in selection)
                     {
                         var mailItem = item as Outlook.MailItem;
-                        if (mailItem == null)
+                        if (mailItem != null)
                         {
-                            continue;
+                            itemsToMove.Add(mailItem);
                         }
+                    }
 
+                    foreach (var mailItem in itemsToMove)
+                    {
                         mailItem.Move(folder);
                         Marshal.ReleaseComObject(mailItem);
                         movedCount++;
