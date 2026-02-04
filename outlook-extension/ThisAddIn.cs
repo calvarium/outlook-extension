@@ -84,19 +84,110 @@ namespace outlook_extension
 
         private void SetWindowOwner(System.Windows.Window dialog)
         {
-            dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
             try
             {
-                var helper = new System.Windows.Interop.WindowInteropHelper(dialog)
+                var ownerHandle = GetOutlookWindowHandle();
+                if (ownerHandle == IntPtr.Zero)
                 {
-                    Owner = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle
-                };
+                    dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                    return;
+                }
+
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+                var helper = new System.Windows.Interop.WindowInteropHelper(dialog);
+                helper.EnsureHandle();
+                helper.Owner = ownerHandle;
+                CenterDialogOnOwner(dialog, ownerHandle);
             }
             catch
             {
                 dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
                 // Ignore owner setup failures to avoid blocking the dialog.
             }
+        }
+
+        private IntPtr GetOutlookWindowHandle()
+        {
+            var foregroundHandle = GetForegroundWindow();
+            if (IsOutlookWindow(foregroundHandle))
+            {
+                return foregroundHandle;
+            }
+
+            var processHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            if (processHandle != IntPtr.Zero)
+            {
+                return processHandle;
+            }
+
+            return foregroundHandle;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+
+        private static bool IsOutlookWindow(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            try
+            {
+                GetWindowThreadProcessId(windowHandle, out var processId);
+                if (processId == 0)
+                {
+                    return false;
+                }
+
+                var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                return string.Equals(process.ProcessName, "OUTLOOK", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void CenterDialogOnOwner(System.Windows.Window dialog, IntPtr ownerHandle)
+        {
+            if (ownerHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            if (!GetWindowRect(ownerHandle, out var ownerRect))
+            {
+                return;
+            }
+
+            var dialogWidth = dialog.Width;
+            var dialogHeight = dialog.Height;
+            if (dialogWidth <= 0 || dialogHeight <= 0)
+            {
+                return;
+            }
+
+            var ownerWidth = ownerRect.Right - ownerRect.Left;
+            var ownerHeight = ownerRect.Bottom - ownerRect.Top;
+            dialog.Left = ownerRect.Left + (ownerWidth - dialogWidth) / 2;
+            dialog.Top = ownerRect.Top + (ownerHeight - dialogHeight) / 2;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
         }
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)
