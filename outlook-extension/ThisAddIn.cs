@@ -24,12 +24,14 @@ namespace outlook_extension
             _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService);
 
             _folderService.InitializeCache();
-            _hotkeyService.RegisterShortcut();
 
             Application.Explorers.NewExplorer += OnNewExplorer;
             _stores = Application.Session.Stores;
             _stores.StoreAdd += OnStoreChanged;
             _stores.BeforeStoreRemove += OnBeforeStoreRemove;
+
+            _hotkeyService.RegisterShortcut();
+            RegisterHotkeyForExplorer(Application.ActiveExplorer());
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -304,7 +306,37 @@ namespace outlook_extension
 
         private void OnNewExplorer(Outlook.Explorer explorer)
         {
+            RegisterHotkeyForExplorer(explorer);
+        }
+
+        private void RegisterHotkeyForExplorer(Outlook.Explorer explorer)
+        {
+            if (explorer == null)
+            {
+                return;
+            }
+
+            ((Outlook.ExplorerEvents_10_Event)explorer).Activate += OnExplorerActivate;
+            TryRegisterHotkey(explorer);
+        }
+
+        private void OnExplorerActivate()
+        {
+            TryRegisterHotkey(Application.ActiveExplorer());
+        }
+
+        private void TryRegisterHotkey(Outlook.Explorer explorer)
+        {
+            if (explorer == null)
+            {
+                return;
+            }
+
             _hotkeyService.RegisterShortcut();
+            if (_hotkeyService.IsRegistered)
+            {
+                ((Outlook.ExplorerEvents_10_Event)explorer).Activate -= OnExplorerActivate;
+            }
         }
 
         private void OnStoreChanged(Outlook.Store store)
