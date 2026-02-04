@@ -59,18 +59,18 @@
                                  Maximum="50"
                                  Value="{Binding MaxRecents, Mode=TwoWay}" />
 
-                <wpfui:CheckBox Content="Nur Unterordner von Posteingang anzeigen"
-                                IsChecked="{Binding ShowInboxOnly, Mode=TwoWay}"
-                                Margin="0,16,0,0" />
-                <wpfui:CheckBox Content="Archiv/Online-Archive anzeigen"
-                                IsChecked="{Binding IncludeArchives, Mode=TwoWay}"
-                                Margin="0,8,0,0" />
+                <CheckBox Content="Nur Unterordner von Posteingang anzeigen"
+                          IsChecked="{Binding ShowInboxOnly, Mode=TwoWay}"
+                          Margin="0,16,0,0" />
+                <CheckBox Content="Archiv/Online-Archive anzeigen"
+                          IsChecked="{Binding IncludeArchives, Mode=TwoWay}"
+                          Margin="0,8,0,0" />
 
                 <TextBlock Text="Theme"
                            FontWeight="SemiBold"
                            Margin="0,20,0,6" />
-                <wpfui:ComboBox ItemsSource="{Binding ThemeOptions}"
-                                SelectedItem="{Binding ThemeMode, Mode=TwoWay}" />
+                <ComboBox ItemsSource="{Binding ThemeOptions}"
+                          SelectedItem="{Binding ThemeMode, Mode=TwoWay}" />
 
                 <wpfui:Button Content="Ordnerliste neu laden"
                               Margin="0,20,0,0"
