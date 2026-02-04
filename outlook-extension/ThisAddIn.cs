@@ -30,6 +30,7 @@ namespace outlook_extension
             _stores.StoreAdd += OnStoreChanged;
             _stores.BeforeStoreRemove += OnBeforeStoreRemove;
 
+            _hotkeyService.RegisterShortcut();
             RegisterHotkeyForExplorer(Application.ActiveExplorer());
         }
 
