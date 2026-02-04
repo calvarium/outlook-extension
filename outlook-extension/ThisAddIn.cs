@@ -108,38 +108,10 @@ namespace outlook_extension
 
         private IntPtr GetOutlookWindowHandle()
         {
-            try
+            var foregroundHandle = GetForegroundWindow();
+            if (IsOutlookWindow(foregroundHandle))
             {
-                var explorer = Application.ActiveExplorer();
-                if (explorer != null)
-                {
-                    var explorerHandle = new IntPtr(explorer.HWND);
-                    if (explorerHandle != IntPtr.Zero)
-                    {
-                        return explorerHandle;
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore explorer handle errors.
-            }
-
-            try
-            {
-                var inspector = Application.ActiveInspector();
-                if (inspector != null)
-                {
-                    var inspectorHandle = new IntPtr(inspector.HWND);
-                    if (inspectorHandle != IntPtr.Zero)
-                    {
-                        return inspectorHandle;
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore inspector handle errors.
+                return foregroundHandle;
             }
 
             var processHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
@@ -148,11 +120,38 @@ namespace outlook_extension
                 return processHandle;
             }
 
-            return GetForegroundWindow();
+            return foregroundHandle;
         }
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        private static bool IsOutlookWindow(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            try
+            {
+                GetWindowThreadProcessId(windowHandle, out var processId);
+                if (processId == 0)
+                {
+                    return false;
+                }
+
+                var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                return string.Equals(process.ProcessName, "OUTLOOK", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         public bool MoveSelectionToFolder(FolderInfo targetFolder, bool keepDialogOpen)
         {
