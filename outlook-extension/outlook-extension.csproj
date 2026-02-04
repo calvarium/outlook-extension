@@ -238,6 +238,7 @@
     <Compile Include="UI\Wpf\Controls\SearchBarControl.xaml.cs">
       <DependentUpon>SearchBarControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UI\Wpf\Controls\Repeater\ItemsRepeater.cs" />
     <Compile Include="UI\Wpf\Infrastructure\RelayCommand.cs" />
     <Compile Include="UI\Wpf\Infrastructure\RelayCommandOfT.cs" />
     <Compile Include="UI\Wpf\Infrastructure\ViewModelBase.cs" />

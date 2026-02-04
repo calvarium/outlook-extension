@@ -14,8 +14,15 @@ namespace outlook_extension.UI.Wpf
                 new Application();
             }
 
-            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Theme/Light.xaml");
-            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Theme/Dark.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/StaticColors.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Palette.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Variables.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Accent.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Fonts.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/Typography.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/DefaultFocusVisualStyle.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/DefaultContextMenu.xaml");
+            AddResourceDictionary("pack://application:,,,/Wpf.Ui;component/Resources/DefaultTextBoxScrollViewerStyle.xaml");
             AddResourceDictionary("pack://application:,,,/outlook-extension;component/UI/Wpf/Resources/Controls.xaml");
 
             ApplyTheme(settingsService?.Current?.ThemeMode);

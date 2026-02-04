@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:wpfui="clr-namespace:Wpf.Ui.Controls;assembly=Wpf.Ui"
-        xmlns:wpfuiRepeater="clr-namespace:Wpf.Ui.Controls.Repeater;assembly=Wpf.Ui"
+        xmlns:wpfui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:controls="clr-namespace:outlook_extension.UI.Wpf.Controls"
+        xmlns:repeater="clr-namespace:outlook_extension.UI.Wpf.Controls.Repeater"
         mc:Ignorable="d"
         Title="Quick Move"
         Width="620"
@@ -20,12 +20,10 @@
         <controls:SearchBarControl x:Name="SearchBar"
                                    SearchText="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                    PlaceholderText="Ordner suchen..." />
-        <wpfuiRepeater:ItemsRepeater Grid.Row="1"
-                                     ItemsSource="{Binding Results}">
-            <wpfuiRepeater:ItemsRepeater.Layout>
-                <wpfuiRepeater:StackLayout Orientation="Vertical" />
-            </wpfuiRepeater:ItemsRepeater.Layout>
-            <wpfuiRepeater:ItemsRepeater.ItemTemplate>
+        <repeater:ItemsRepeater Grid.Row="1"
+                                ItemsSource="{Binding Results}"
+                                Orientation="Vertical">
+            <repeater:ItemsRepeater.ItemTemplate>
                 <DataTemplate>
                     <wpfui:Button Style="{StaticResource ResultItemButtonStyle}"
                                   Command="{Binding DataContext.SelectResultCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -43,8 +41,8 @@
                         </Grid>
                     </wpfui:Button>
                 </DataTemplate>
-            </wpfuiRepeater:ItemsRepeater.ItemTemplate>
-        </wpfuiRepeater:ItemsRepeater>
+            </repeater:ItemsRepeater.ItemTemplate>
+        </repeater:ItemsRepeater>
         <TextBlock Grid.Row="2"
                    Margin="4,8,4,0"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
