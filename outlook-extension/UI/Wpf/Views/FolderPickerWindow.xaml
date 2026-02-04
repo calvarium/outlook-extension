@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:wpfui="clr-namespace:Wpf.Ui.Controls;assembly=Wpf.Ui"
+        xmlns:wpfuiRepeater="clr-namespace:Wpf.Ui.Controls.Repeater;assembly=Wpf.Ui"
         xmlns:controls="clr-namespace:outlook_extension.UI.Wpf.Controls"
         mc:Ignorable="d"
         Title="Ordner auswählen"
@@ -20,12 +21,12 @@
         <controls:SearchBarControl x:Name="SearchBar"
                                    SearchText="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                    PlaceholderText="Ordner suchen..." />
-        <wpfui:ItemsRepeater Grid.Row="1"
-                             ItemsSource="{Binding Results}">
-            <wpfui:ItemsRepeater.Layout>
-                <wpfui:StackLayout Orientation="Vertical" />
-            </wpfui:ItemsRepeater.Layout>
-            <wpfui:ItemsRepeater.ItemTemplate>
+        <wpfuiRepeater:ItemsRepeater Grid.Row="1"
+                                     ItemsSource="{Binding Results}">
+            <wpfuiRepeater:ItemsRepeater.Layout>
+                <wpfuiRepeater:StackLayout Orientation="Vertical" />
+            </wpfuiRepeater:ItemsRepeater.Layout>
+            <wpfuiRepeater:ItemsRepeater.ItemTemplate>
                 <DataTemplate>
                     <wpfui:Button Style="{StaticResource ResultItemButtonStyle}"
                                   Command="{Binding DataContext.SelectResultCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -43,8 +44,8 @@
                         </Grid>
                     </wpfui:Button>
                 </DataTemplate>
-            </wpfui:ItemsRepeater.ItemTemplate>
-        </wpfui:ItemsRepeater>
+            </wpfuiRepeater:ItemsRepeater.ItemTemplate>
+        </wpfuiRepeater:ItemsRepeater>
         <TextBlock Grid.Row="2"
                    Margin="4,8,4,8"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"

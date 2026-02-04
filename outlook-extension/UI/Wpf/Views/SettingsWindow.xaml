@@ -28,15 +28,15 @@
                 <TextBlock Text="Favoriten"
                            FontWeight="SemiBold"
                            Margin="0,20,0,6" />
-                <wpfui:ListBox ItemsSource="{Binding Favorites}"
-                               SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
-                               Height="160">
-                    <wpfui:ListBox.ItemTemplate>
+                <ListBox ItemsSource="{Binding Favorites}"
+                         SelectedItem="{Binding SelectedFavorite, Mode=TwoWay}"
+                         Height="160">
+                    <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Label}" />
                         </DataTemplate>
-                    </wpfui:ListBox.ItemTemplate>
-                </wpfui:ListBox>
+                    </ListBox.ItemTemplate>
+                </ListBox>
                 <StackPanel Orientation="Horizontal"
                             Margin="0,8,0,0">
                     <wpfui:Button Content="Hinzufügen"
