@@ -331,11 +331,7 @@ namespace outlook_extension
                 return;
             }
 
-            var handle = new IntPtr(explorer.HWND);
-            if (handle != IntPtr.Zero)
-            {
-                _hotkeyService.RegisterShortcut(handle);
-            }
+            _hotkeyService.RegisterShortcut();
         }
 
         private void OnStoreChanged(Outlook.Store store)

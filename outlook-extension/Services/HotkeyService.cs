@@ -20,8 +20,6 @@ namespace outlook_extension
         private readonly Timer _retryTimer;
         private int _retryAttempts;
         private const int MaxRetryAttempts = 15;
-        private IntPtr _outlookHandle;
-
         public HotkeyService(
             Outlook.Application application,
             SettingsService settingsService,
@@ -43,17 +41,6 @@ namespace outlook_extension
             AttemptRegister();
         }
 
-        public void RegisterShortcut(IntPtr handle)
-        {
-            if (handle != IntPtr.Zero)
-            {
-                _outlookHandle = handle;
-            }
-
-            _retryAttempts = 0;
-            AttemptRegister();
-        }
-
         public void UnregisterShortcut()
         {
             _retryTimer.Stop();
@@ -64,7 +51,7 @@ namespace outlook_extension
 
             try
             {
-                var handle = _outlookHandle != IntPtr.Zero ? _outlookHandle : GetOutlookWindowHandle();
+                var handle = GetOutlookWindowHandle();
                 if (handle != IntPtr.Zero)
                 {
                     UnregisterHotKey(handle, HotkeyId);
@@ -114,7 +101,7 @@ namespace outlook_extension
         {
             UnregisterShortcut();
 
-            var handle = _outlookHandle != IntPtr.Zero ? _outlookHandle : GetOutlookWindowHandle();
+            var handle = GetOutlookWindowHandle();
             if (handle == IntPtr.Zero)
             {
                 if (!_retryTimer.Enabled)
