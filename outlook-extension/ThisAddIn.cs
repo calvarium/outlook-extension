@@ -297,7 +297,10 @@ namespace outlook_extension
 
         private bool TryAddMovableItem(object item, List<object> itemsToMove)
         {
-            if (item is Outlook.MailItem || item is Outlook.MeetingItem)
+            var mail = item as Outlook.MailItem;
+            var meeting = item as Outlook.MeetingItem;
+
+            if (mail != null || meeting != null)
             {
                 itemsToMove.Add(item);
                 return true;
@@ -308,33 +311,73 @@ namespace outlook_extension
 
         private void AddConversationItems(Outlook.ConversationHeader conversationHeader, List<object> itemsToMove)
         {
-            Outlook.SimpleItems conversationItems = null;
+            Outlook.Conversation conversation = null;
             try
             {
-                conversationItems = conversationHeader.GetItems();
-                if (conversationItems == null)
+                conversation = conversationHeader.GetConversation();
+                if (conversation == null)
                 {
                     return;
                 }
 
-                foreach (var conversationItem in conversationItems)
-                {
-                    if (TryAddMovableItem(conversationItem, itemsToMove))
-                    {
-                        continue;
-                    }
-
-                    if (Marshal.IsComObject(conversationItem))
-                    {
-                        Marshal.ReleaseComObject(conversationItem);
-                    }
-                }
+                AddConversationItems(conversation, itemsToMove);
             }
             finally
             {
-                if (conversationItems != null)
+                if (conversation != null)
                 {
-                    Marshal.ReleaseComObject(conversationItems);
+                    Marshal.ReleaseComObject(conversation);
+                }
+            }
+        }
+
+        private void AddConversationItems(Outlook.Conversation conversation, List<object> itemsToMove)
+        {
+            Outlook.SimpleItems rootItems = null;
+            try
+            {
+                rootItems = conversation.GetRootItems();
+                if (rootItems == null)
+                {
+                    return;
+                }
+
+                AddConversationItems(conversation, rootItems, itemsToMove);
+            }
+            finally
+            {
+                if (rootItems != null)
+                {
+                    Marshal.ReleaseComObject(rootItems);
+                }
+            }
+        }
+
+        private void AddConversationItems(Outlook.Conversation conversation, Outlook.SimpleItems items, List<object> itemsToMove)
+        {
+            foreach (var conversationItem in items)
+            {
+                var added = TryAddMovableItem(conversationItem, itemsToMove);
+                Outlook.SimpleItems children = null;
+                try
+                {
+                    children = conversation.GetChildren(conversationItem);
+                    if (children != null)
+                    {
+                        AddConversationItems(conversation, children, itemsToMove);
+                    }
+                }
+                finally
+                {
+                    if (children != null)
+                    {
+                        Marshal.ReleaseComObject(children);
+                    }
+                }
+
+                if (!added && Marshal.IsComObject(conversationItem))
+                {
+                    Marshal.ReleaseComObject(conversationItem);
                 }
             }
         }
