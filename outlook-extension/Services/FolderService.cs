@@ -24,10 +24,21 @@ namespace outlook_extension
 
         public IReadOnlyList<FolderInfo> GetCachedFolders()
         {
+            EnsureCacheInitialized();
             lock (_lock)
             {
                 return _cache.ToList();
             }
+        }
+
+        private void EnsureCacheInitialized()
+        {
+            if (_initialized)
+            {
+                return;
+            }
+
+            InitializeCache();
         }
 
         public void InitializeCache()

@@ -14,6 +14,7 @@ namespace outlook_extension
         private HotkeyService _hotkeyService;
         private LoggingService _loggingService;
         private Outlook.Stores _stores;
+        private System.Windows.Forms.Timer _cacheWarmupTimer;
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
@@ -23,7 +24,7 @@ namespace outlook_extension
             _searchService = new SearchService(_settingsService);
             _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService);
 
-            _folderService.InitializeCache();
+            ScheduleCacheWarmup();
 
             Application.Explorers.NewExplorer += OnNewExplorer;
             _stores = Application.Session.Stores;
@@ -48,6 +49,7 @@ namespace outlook_extension
             }
 
             _hotkeyService?.Dispose();
+            DisposeCacheWarmupTimer();
         }
 
         protected override Office.IRibbonExtensibility CreateRibbonExtensibilityObject()
@@ -347,6 +349,47 @@ namespace outlook_extension
         private void OnBeforeStoreRemove(Outlook.Store store, ref bool cancel)
         {
             _folderService.RefreshCache();
+        }
+
+        private void ScheduleCacheWarmup()
+        {
+            if (_cacheWarmupTimer != null)
+            {
+                return;
+            }
+
+            _cacheWarmupTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 5000
+            };
+            _cacheWarmupTimer.Tick += OnCacheWarmupTick;
+            _cacheWarmupTimer.Start();
+        }
+
+        private void OnCacheWarmupTick(object sender, EventArgs e)
+        {
+            DisposeCacheWarmupTimer();
+            try
+            {
+                _folderService.InitializeCache();
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("FolderCacheWarmup", ex);
+            }
+        }
+
+        private void DisposeCacheWarmupTimer()
+        {
+            if (_cacheWarmupTimer == null)
+            {
+                return;
+            }
+
+            _cacheWarmupTimer.Stop();
+            _cacheWarmupTimer.Tick -= OnCacheWarmupTick;
+            _cacheWarmupTimer.Dispose();
+            _cacheWarmupTimer = null;
         }
 
         #region Von VSTO generierter Code
