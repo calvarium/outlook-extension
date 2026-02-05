@@ -14,6 +14,7 @@ namespace outlook_extension
         private readonly List<FolderInfo> _cache = new List<FolderInfo>();
         private readonly object _lock = new object();
         private bool _initialized;
+        private bool _warmupStarted;
 
         public FolderService(Outlook.Application application, SettingsService settingsService, LoggingService loggingService)
         {
@@ -24,22 +25,13 @@ namespace outlook_extension
 
         public IReadOnlyList<FolderInfo> GetCachedFolders()
         {
-            EnsureCacheInitialized();
             lock (_lock)
             {
                 return _cache.ToList();
             }
         }
 
-        private void EnsureCacheInitialized()
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            InitializeCache();
-        }
+        public bool WarmupStarted => _warmupStarted;
 
         public void InitializeCache()
         {
@@ -54,12 +46,28 @@ namespace outlook_extension
 
         public void RefreshCache()
         {
+            BuildCache(_application);
+        }
+
+        public void RefreshCache(Outlook.Application application)
+        {
+            if (application == null)
+            {
+                return;
+            }
+
+            _warmupStarted = true;
+            BuildCache(application);
+        }
+
+        private void BuildCache(Outlook.Application application)
+        {
             lock (_lock)
             {
                 _cache.Clear();
                 try
                 {
-                    var namespaceSession = _application.Session;
+                    var namespaceSession = application.Session;
                     var stores = namespaceSession.Stores;
                     foreach (Outlook.Store store in stores)
                     {
@@ -86,6 +94,10 @@ namespace outlook_extension
                 catch (Exception ex)
                 {
                     _loggingService.LogError("FolderCache", ex);
+                }
+                finally
+                {
+                    _initialized = true;
                 }
             }
         }
