@@ -220,31 +220,16 @@ namespace outlook_extension
                 var selection = Application.ActiveExplorer()?.Selection;
                 if (selection != null && selection.Count > 0)
                 {
-                    var itemsToMove = new List<Outlook.MailItem>();
-                    foreach (var item in selection)
-                    {
-                        var mailItem = item as Outlook.MailItem;
-                        if (mailItem != null)
-                        {
-                            itemsToMove.Add(mailItem);
-                        }
-                    }
+                    var itemsToMove = CollectMovableItems(selection);
 
-                    foreach (var mailItem in itemsToMove)
-                    {
-                        mailItem.Move(folder);
-                        Marshal.ReleaseComObject(mailItem);
-                        movedCount++;
-                    }
+                    movedCount = MoveItems(itemsToMove, folder);
                 }
                 else
                 {
                     var inspector = Application.ActiveInspector();
-                    var mailItem = inspector?.CurrentItem as Outlook.MailItem;
-                    if (mailItem != null)
+                    var currentItem = inspector?.CurrentItem;
+                    if (TryMoveItem(currentItem, folder))
                     {
-                        mailItem.Move(folder);
-                        Marshal.ReleaseComObject(mailItem);
                         movedCount = 1;
                     }
                 }
@@ -281,6 +266,143 @@ namespace outlook_extension
                     Marshal.ReleaseComObject(folder);
                 }
             }
+        }
+
+        private List<object> CollectMovableItems(Outlook.Selection selection)
+        {
+            var itemsToMove = new List<object>();
+            foreach (var selectionItem in selection)
+            {
+                if (TryAddMovableItem(selectionItem, itemsToMove))
+                {
+                    continue;
+                }
+
+                var conversationHeader = selectionItem as Outlook.ConversationHeader;
+                if (conversationHeader != null)
+                {
+                    AddConversationItems(conversationHeader, itemsToMove);
+                    Marshal.ReleaseComObject(conversationHeader);
+                    continue;
+                }
+
+                if (Marshal.IsComObject(selectionItem))
+                {
+                    Marshal.ReleaseComObject(selectionItem);
+                }
+            }
+
+            return itemsToMove;
+        }
+
+        private bool TryAddMovableItem(object item, List<object> itemsToMove)
+        {
+            if (item is Outlook.MailItem || item is Outlook.MeetingItem)
+            {
+                itemsToMove.Add(item);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void AddConversationItems(Outlook.ConversationHeader conversationHeader, List<object> itemsToMove)
+        {
+            Outlook.Conversation conversation = null;
+            Outlook.Table table = null;
+            try
+            {
+                conversation = conversationHeader.GetConversation();
+                if (conversation == null)
+                {
+                    return;
+                }
+
+                table = conversation.GetTable();
+                table.Columns.Add("EntryID");
+                table.Columns.Add("StoreID");
+
+                Outlook.Row row = null;
+                while ((row = table.GetNextRow()) != null)
+                {
+                    var entryId = row["EntryID"] as string;
+                    var storeId = row["StoreID"] as string;
+                    if (string.IsNullOrEmpty(entryId))
+                    {
+                        Marshal.ReleaseComObject(row);
+                        continue;
+                    }
+
+                    var item = Application.Session.GetItemFromID(entryId, storeId);
+                    if (!TryAddMovableItem(item, itemsToMove))
+                    {
+                        if (item != null)
+                        {
+                            Marshal.ReleaseComObject(item);
+                        }
+                    }
+
+                    Marshal.ReleaseComObject(row);
+                }
+            }
+            finally
+            {
+                if (table != null)
+                {
+                    Marshal.ReleaseComObject(table);
+                }
+
+                if (conversation != null)
+                {
+                    Marshal.ReleaseComObject(conversation);
+                }
+            }
+        }
+
+        private int MoveItems(List<object> itemsToMove, Outlook.MAPIFolder folder)
+        {
+            var movedCount = 0;
+            foreach (var item in itemsToMove)
+            {
+                if (TryMoveItem(item, folder))
+                {
+                    movedCount++;
+                }
+            }
+
+            return movedCount;
+        }
+
+        private bool TryMoveItem(object item, Outlook.MAPIFolder folder)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (item is Outlook.MailItem mailItem)
+                {
+                    mailItem.Move(folder);
+                    return true;
+                }
+
+                if (item is Outlook.MeetingItem meetingItem)
+                {
+                    meetingItem.Move(folder);
+                    return true;
+                }
+            }
+            finally
+            {
+                if (Marshal.IsComObject(item))
+                {
+                    Marshal.ReleaseComObject(item);
+                }
+            }
+
+            return false;
         }
 
         public void UndoLastMove()
