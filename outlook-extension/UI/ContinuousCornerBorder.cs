@@ -240,54 +240,83 @@ namespace outlook_extension
             bottomRight = Math.Min(bottomRight, Math.Min(maxRadiusX, maxRadiusY));
             bottomLeft = Math.Min(bottomLeft, Math.Min(maxRadiusX, maxRadiusY));
 
-            var geometry = new StreamGeometry();
+            var geometry = new StreamGeometry
+            {
+                FillRule = FillRule.Nonzero
+            };
             using (var ctx = geometry.Open())
             {
                 var topLeftStart = new Point(rect.Left + topLeft, rect.Top);
                 ctx.BeginFigure(topLeftStart, true, true);
 
                 ctx.LineTo(new Point(rect.Right - topRight, rect.Top), true, false);
-                AddCorner(ctx, rect, topRight, smoothing, CornerPosition.TopRight, false);
+                AddCorner(ctx, rect, topRight, smoothing, CornerPosition.TopRight);
 
                 ctx.LineTo(new Point(rect.Right, rect.Bottom - bottomRight), true, false);
-                AddCorner(ctx, rect, bottomRight, smoothing, CornerPosition.BottomRight, true);
+                AddCorner(ctx, rect, bottomRight, smoothing, CornerPosition.BottomRight);
 
                 ctx.LineTo(new Point(rect.Left + bottomLeft, rect.Bottom), true, false);
-                AddCorner(ctx, rect, bottomLeft, smoothing, CornerPosition.BottomLeft, false);
+                AddCorner(ctx, rect, bottomLeft, smoothing, CornerPosition.BottomLeft);
 
                 ctx.LineTo(new Point(rect.Left, rect.Top + topLeft), true, false);
-                AddCorner(ctx, rect, topLeft, smoothing, CornerPosition.TopLeft, true);
+                AddCorner(ctx, rect, topLeft, smoothing, CornerPosition.TopLeft);
             }
 
             return geometry;
         }
 
-        private static void AddCorner(StreamGeometryContext ctx, Rect rect, double radius, double smoothing, CornerPosition position, bool reverse)
+        private static void AddCorner(StreamGeometryContext ctx, Rect rect, double radius, double smoothing, CornerPosition position)
         {
             if (radius <= 0)
             {
                 return;
             }
 
-            const int segments = 10;
-            var start = reverse ? segments : 0;
-            var end = reverse ? 0 : segments;
-            var step = reverse ? -1 : 1;
-
-            for (int i = start + step; reverse ? i >= end : i <= end; i += step)
+            var normalized = Math.Max(0, smoothing - 2.0) / 6.0;
+            if (normalized > 1.0)
             {
-                var angle = (Math.PI / 2.0) * (i / (double)segments);
-                var x = radius * Math.Pow(Math.Cos(angle), 2.0 / smoothing);
-                var y = radius * Math.Pow(Math.Sin(angle), 2.0 / smoothing);
-                var point = position switch
-                {
-                    CornerPosition.TopLeft => new Point(rect.Left + x, rect.Top + y),
-                    CornerPosition.TopRight => new Point(rect.Right - x, rect.Top + y),
-                    CornerPosition.BottomRight => new Point(rect.Right - x, rect.Bottom - y),
-                    CornerPosition.BottomLeft => new Point(rect.Left + x, rect.Bottom - y),
-                    _ => new Point(rect.Left + x, rect.Top + y)
-                };
-                ctx.LineTo(point, true, false);
+                normalized = 1.0;
+            }
+
+            var circleKappa = 0.5522847498307936;
+            var squircleKappa = 0.75;
+            var kappa = circleKappa + (squircleKappa - circleKappa) * normalized;
+            var handle = radius * kappa;
+
+            switch (position)
+            {
+                case CornerPosition.TopRight:
+                    ctx.BezierTo(
+                        new Point(rect.Right - radius + handle, rect.Top),
+                        new Point(rect.Right, rect.Top + radius - handle),
+                        new Point(rect.Right, rect.Top + radius),
+                        true,
+                        false);
+                    break;
+                case CornerPosition.BottomRight:
+                    ctx.BezierTo(
+                        new Point(rect.Right, rect.Bottom - radius + handle),
+                        new Point(rect.Right - radius + handle, rect.Bottom),
+                        new Point(rect.Right - radius, rect.Bottom),
+                        true,
+                        false);
+                    break;
+                case CornerPosition.BottomLeft:
+                    ctx.BezierTo(
+                        new Point(rect.Left + radius - handle, rect.Bottom),
+                        new Point(rect.Left, rect.Bottom - radius + handle),
+                        new Point(rect.Left, rect.Bottom - radius),
+                        true,
+                        false);
+                    break;
+                case CornerPosition.TopLeft:
+                    ctx.BezierTo(
+                        new Point(rect.Left, rect.Top + radius - handle),
+                        new Point(rect.Left + radius - handle, rect.Top),
+                        new Point(rect.Left + radius, rect.Top),
+                        true,
+                        false);
+                    break;
             }
         }
 
