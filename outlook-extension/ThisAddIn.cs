@@ -308,53 +308,33 @@ namespace outlook_extension
 
         private void AddConversationItems(Outlook.ConversationHeader conversationHeader, List<object> itemsToMove)
         {
-            Outlook.Conversation conversation = null;
-            Outlook.Table table = null;
+            Outlook.SimpleItems conversationItems = null;
             try
             {
-                conversation = conversationHeader.GetConversation();
-                if (conversation == null)
+                conversationItems = conversationHeader.GetItems();
+                if (conversationItems == null)
                 {
                     return;
                 }
 
-                table = conversation.GetTable();
-                table.Columns.Add("EntryID");
-                table.Columns.Add("StoreID");
-
-                Outlook.Row row = null;
-                while ((row = table.GetNextRow()) != null)
+                foreach (var conversationItem in conversationItems)
                 {
-                    var entryId = row["EntryID"] as string;
-                    var storeId = row["StoreID"] as string;
-                    if (string.IsNullOrEmpty(entryId))
+                    if (TryAddMovableItem(conversationItem, itemsToMove))
                     {
-                        Marshal.ReleaseComObject(row);
                         continue;
                     }
 
-                    var item = Application.Session.GetItemFromID(entryId, storeId);
-                    if (!TryAddMovableItem(item, itemsToMove))
+                    if (Marshal.IsComObject(conversationItem))
                     {
-                        if (item != null)
-                        {
-                            Marshal.ReleaseComObject(item);
-                        }
+                        Marshal.ReleaseComObject(conversationItem);
                     }
-
-                    Marshal.ReleaseComObject(row);
                 }
             }
             finally
             {
-                if (table != null)
+                if (conversationItems != null)
                 {
-                    Marshal.ReleaseComObject(table);
-                }
-
-                if (conversation != null)
-                {
-                    Marshal.ReleaseComObject(conversation);
+                    Marshal.ReleaseComObject(conversationItems);
                 }
             }
         }
