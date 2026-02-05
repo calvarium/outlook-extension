@@ -220,31 +220,16 @@ namespace outlook_extension
                 var selection = Application.ActiveExplorer()?.Selection;
                 if (selection != null && selection.Count > 0)
                 {
-                    var itemsToMove = new List<Outlook.MailItem>();
-                    foreach (var item in selection)
-                    {
-                        var mailItem = item as Outlook.MailItem;
-                        if (mailItem != null)
-                        {
-                            itemsToMove.Add(mailItem);
-                        }
-                    }
+                    var itemsToMove = CollectMovableItems(selection);
 
-                    foreach (var mailItem in itemsToMove)
-                    {
-                        mailItem.Move(folder);
-                        Marshal.ReleaseComObject(mailItem);
-                        movedCount++;
-                    }
+                    movedCount = MoveItems(itemsToMove, folder);
                 }
                 else
                 {
                     var inspector = Application.ActiveInspector();
-                    var mailItem = inspector?.CurrentItem as Outlook.MailItem;
-                    if (mailItem != null)
+                    var currentItem = inspector?.CurrentItem;
+                    if (TryMoveItem(currentItem, folder))
                     {
-                        mailItem.Move(folder);
-                        Marshal.ReleaseComObject(mailItem);
                         movedCount = 1;
                     }
                 }
@@ -281,6 +266,256 @@ namespace outlook_extension
                     Marshal.ReleaseComObject(folder);
                 }
             }
+        }
+
+        private List<object> CollectMovableItems(Outlook.Selection selection)
+        {
+            var itemsToMove = new List<object>();
+            var uniqueEntryIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var selectionItem in selection)
+            {
+                var conversationHeader = selectionItem as Outlook.ConversationHeader;
+                if (conversationHeader != null)
+                {
+                    AddConversationItems(conversationHeader, itemsToMove, uniqueEntryIds);
+                    Marshal.ReleaseComObject(conversationHeader);
+                    continue;
+                }
+
+                var mailItem = selectionItem as Outlook.MailItem;
+                if (mailItem != null)
+                {
+                    AddConversationItemsFromItem(mailItem, itemsToMove, uniqueEntryIds);
+                    continue;
+                }
+
+                if (TryAddMovableItem(selectionItem, itemsToMove, uniqueEntryIds))
+                {
+                    continue;
+                }
+
+                if (Marshal.IsComObject(selectionItem))
+                {
+                    Marshal.ReleaseComObject(selectionItem);
+                }
+            }
+
+            return itemsToMove;
+        }
+
+        private bool TryAddMovableItem(object item, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            var mail = item as Outlook.MailItem;
+            var meeting = item as Outlook.MeetingItem;
+
+            if (mail != null || meeting != null)
+            {
+                var entryId = GetEntryId(item);
+                if (!string.IsNullOrEmpty(entryId) && !uniqueEntryIds.Add(entryId))
+                {
+                    return true;
+                }
+
+                itemsToMove.Add(item);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void AddConversationItems(Outlook.ConversationHeader conversationHeader, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            Outlook.Conversation conversation = null;
+            Outlook.SimpleItems headerItems = null;
+            try
+            {
+                headerItems = conversationHeader.GetItems();
+                if (headerItems != null && headerItems.Count > 0)
+                {
+                    AddConversationItems(headerItems, itemsToMove, uniqueEntryIds);
+                    return;
+                }
+
+                conversation = conversationHeader.GetConversation();
+                if (conversation == null)
+                {
+                    return;
+                }
+
+                AddConversationItems(conversation, itemsToMove, uniqueEntryIds);
+            }
+            finally
+            {
+                if (headerItems != null)
+                {
+                    Marshal.ReleaseComObject(headerItems);
+                }
+
+                if (conversation != null)
+                {
+                    Marshal.ReleaseComObject(conversation);
+                }
+            }
+        }
+
+        private void AddConversationItemsFromItem(Outlook.MailItem mailItem, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            Outlook.Conversation conversation = null;
+            try
+            {
+                conversation = mailItem.GetConversation();
+                if (conversation == null)
+                {
+                    return;
+                }
+
+                AddConversationItems(conversation, itemsToMove, uniqueEntryIds);
+            }
+            finally
+            {
+                if (conversation != null)
+                {
+                    Marshal.ReleaseComObject(conversation);
+                }
+            }
+        }
+
+        private void AddConversationItems(Outlook.Conversation conversation, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            Outlook.SimpleItems rootItems = null;
+            try
+            {
+                rootItems = conversation.GetRootItems();
+                if (rootItems == null)
+                {
+                    return;
+                }
+
+                AddConversationItems(conversation, rootItems, itemsToMove, uniqueEntryIds);
+            }
+            finally
+            {
+                if (rootItems != null)
+                {
+                    Marshal.ReleaseComObject(rootItems);
+                }
+            }
+        }
+
+        private void AddConversationItems(Outlook.SimpleItems items, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (var conversationItem in items)
+            {
+                if (TryAddMovableItem(conversationItem, itemsToMove, uniqueEntryIds))
+                {
+                    continue;
+                }
+
+                if (Marshal.IsComObject(conversationItem))
+                {
+                    Marshal.ReleaseComObject(conversationItem);
+                }
+            }
+        }
+
+        private void AddConversationItems(Outlook.Conversation conversation, Outlook.SimpleItems items, List<object> itemsToMove, HashSet<string> uniqueEntryIds)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (var conversationItem in items)
+            {
+                var added = TryAddMovableItem(conversationItem, itemsToMove, uniqueEntryIds);
+                Outlook.SimpleItems children = null;
+                try
+                {
+                    children = conversation.GetChildren(conversationItem);
+                    if (children != null)
+                    {
+                        AddConversationItems(conversation, children, itemsToMove, uniqueEntryIds);
+                    }
+                }
+                finally
+                {
+                    if (children != null)
+                    {
+                        Marshal.ReleaseComObject(children);
+                    }
+                }
+
+                if (!added && Marshal.IsComObject(conversationItem))
+                {
+                    Marshal.ReleaseComObject(conversationItem);
+                }
+            }
+        }
+
+        private string GetEntryId(object item)
+        {
+            if (item is Outlook.MailItem mailItem)
+            {
+                return mailItem.EntryID;
+            }
+
+            if (item is Outlook.MeetingItem meetingItem)
+            {
+                return meetingItem.EntryID;
+            }
+
+            return null;
+        }
+
+        private int MoveItems(List<object> itemsToMove, Outlook.MAPIFolder folder)
+        {
+            var movedCount = 0;
+            foreach (var item in itemsToMove)
+            {
+                if (TryMoveItem(item, folder))
+                {
+                    movedCount++;
+                }
+            }
+
+            return movedCount;
+        }
+
+        private bool TryMoveItem(object item, Outlook.MAPIFolder folder)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (item is Outlook.MailItem mailItem)
+                {
+                    mailItem.Move(folder);
+                    return true;
+                }
+
+                if (item is Outlook.MeetingItem meetingItem)
+                {
+                    meetingItem.Move(folder);
+                    return true;
+                }
+            }
+            finally
+            {
+                if (Marshal.IsComObject(item))
+                {
+                    Marshal.ReleaseComObject(item);
+                }
+            }
+
+            return false;
         }
 
         public void UndoLastMove()
