@@ -312,8 +312,16 @@ namespace outlook_extension
         private void AddConversationItems(Outlook.ConversationHeader conversationHeader, List<object> itemsToMove)
         {
             Outlook.Conversation conversation = null;
+            Outlook.SimpleItems headerItems = null;
             try
             {
+                headerItems = conversationHeader.GetItems();
+                if (headerItems != null && headerItems.Count > 0)
+                {
+                    AddConversationItems(headerItems, itemsToMove);
+                    return;
+                }
+
                 conversation = conversationHeader.GetConversation();
                 if (conversation == null)
                 {
@@ -324,6 +332,11 @@ namespace outlook_extension
             }
             finally
             {
+                if (headerItems != null)
+                {
+                    Marshal.ReleaseComObject(headerItems);
+                }
+
                 if (conversation != null)
                 {
                     Marshal.ReleaseComObject(conversation);
@@ -353,8 +366,34 @@ namespace outlook_extension
             }
         }
 
+        private void AddConversationItems(Outlook.SimpleItems items, List<object> itemsToMove)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (var conversationItem in items)
+            {
+                if (TryAddMovableItem(conversationItem, itemsToMove))
+                {
+                    continue;
+                }
+
+                if (Marshal.IsComObject(conversationItem))
+                {
+                    Marshal.ReleaseComObject(conversationItem);
+                }
+            }
+        }
+
         private void AddConversationItems(Outlook.Conversation conversation, Outlook.SimpleItems items, List<object> itemsToMove)
         {
+            if (items == null)
+            {
+                return;
+            }
+
             foreach (var conversationItem in items)
             {
                 var added = TryAddMovableItem(conversationItem, itemsToMove);
