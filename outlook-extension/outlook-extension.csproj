@@ -32,6 +32,7 @@
     <BootstrapperEnabled>true</BootstrapperEnabled>
     <BootstrapperComponentsLocation>HomeSite</BootstrapperComponentsLocation>
     <ResolveComReferenceSilent>true</ResolveComReferenceSilent>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.VSTORuntime.4.0">
@@ -246,6 +247,8 @@
     <Compile Include="UI\QuickMoveWindow.cs" />
     <Compile Include="UI\SettingsWindow.cs" />
     <Compile Include="UI\WpfStyles.cs" />
+    <Compile Include="UI\CornerTokens.cs" />
+    <Compile Include="UI\ContinuousCornerBorder.cs" />
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <PropertyGroup>

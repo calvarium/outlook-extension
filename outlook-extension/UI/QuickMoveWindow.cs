@@ -34,10 +34,12 @@ namespace outlook_extension
             ShowInTaskbar = false;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-            var rootBorder = new Border
+            var rootBorder = new ContinuousCornerBorder
             {
                 Background = WpfStyles.GlassBackground,
-                CornerRadius = new CornerRadius(22),
+                CornerRadius = new CornerRadius(CornerTokens.RadiusXL),
+                CornerStyle = WpfStyles.DefaultCornerStyle,
+                CornerSmoothing = WpfStyles.DefaultCornerSmoothing,
                 Padding = new Thickness(22),
                 Effect = new DropShadowEffect
                 {

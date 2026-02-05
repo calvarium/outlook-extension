@@ -7,6 +7,9 @@ namespace outlook_extension
 {
     internal static class WpfStyles
     {
+        public static CornerStyle DefaultCornerStyle { get; set; } = CornerStyle.Continuous;
+        public static double DefaultCornerSmoothing { get; set; } = 4.0;
+
         public static Brush GlassBackground => new SolidColorBrush(Color.FromArgb(235, 20, 24, 36));
         public static Brush CardBackground => new SolidColorBrush(Color.FromArgb(230, 28, 34, 48));
         public static Brush SubtleBackground => new SolidColorBrush(Color.FromArgb(160, 34, 41, 58));
@@ -31,7 +34,7 @@ namespace outlook_extension
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = SubtleBackground;
-            button.Template = CreateRoundedButtonTemplate(10);
+            button.Template = CreateRoundedButtonTemplate(CornerTokens.RadiusM);
             return button;
         }
 
@@ -53,7 +56,7 @@ namespace outlook_extension
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = AccentBackground;
-            button.Template = CreateRoundedButtonTemplate(12);
+            button.Template = CreateRoundedButtonTemplate(CornerTokens.RadiusM);
             return button;
         }
 
@@ -74,16 +77,18 @@ namespace outlook_extension
             };
             button.MouseEnter += (sender, args) => button.Background = AccentHoverBackground;
             button.MouseLeave += (sender, args) => button.Background = SubtleBackground;
-            button.Template = CreateRoundedButtonTemplate(10);
+            button.Template = CreateRoundedButtonTemplate(CornerTokens.RadiusM);
             return button;
         }
 
         public static ControlTemplate CreateRoundedButtonTemplate(double radius)
         {
             var template = new ControlTemplate(typeof(Button));
-            var border = new FrameworkElementFactory(typeof(Border));
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
-            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
+            var border = new FrameworkElementFactory(typeof(ContinuousCornerBorder));
+            border.SetValue(ContinuousCornerBorder.CornerRadiusProperty, new CornerRadius(radius));
+            border.SetValue(ContinuousCornerBorder.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
+            border.SetValue(ContinuousCornerBorder.CornerStyleProperty, DefaultCornerStyle);
+            border.SetValue(ContinuousCornerBorder.CornerSmoothingProperty, DefaultCornerSmoothing);
             var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
             contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
             contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
@@ -93,23 +98,27 @@ namespace outlook_extension
             return template;
         }
 
-        public static Border CreateGlassCard(UIElement content)
+        public static ContinuousCornerBorder CreateGlassCard(UIElement content)
         {
-            return new Border
+            return new ContinuousCornerBorder
             {
                 Background = CardBackground,
-                CornerRadius = new CornerRadius(18),
+                CornerRadius = new CornerRadius(CornerTokens.RadiusL),
+                CornerStyle = DefaultCornerStyle,
+                CornerSmoothing = DefaultCornerSmoothing,
                 Padding = new Thickness(18),
                 Child = content
             };
         }
 
-        public static Border CreateInputCard(UIElement content)
+        public static ContinuousCornerBorder CreateInputCard(UIElement content)
         {
-            return new Border
+            return new ContinuousCornerBorder
             {
                 Background = SubtleBackground,
-                CornerRadius = new CornerRadius(12),
+                CornerRadius = new CornerRadius(CornerTokens.RadiusL),
+                CornerStyle = DefaultCornerStyle,
+                CornerSmoothing = DefaultCornerSmoothing,
                 Padding = new Thickness(12),
                 Child = content
             };
