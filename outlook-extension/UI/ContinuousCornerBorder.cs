@@ -202,12 +202,43 @@ namespace outlook_extension
                 return null;
             }
 
+            var topLeft = Math.Max(0, radius.TopLeft);
+            var topRight = Math.Max(0, radius.TopRight);
+            var bottomRight = Math.Max(0, radius.BottomRight);
+            var bottomLeft = Math.Max(0, radius.BottomLeft);
+
+            var scale = 1.0;
+            if (topLeft + topRight > width)
+            {
+                scale = Math.Min(scale, width / (topLeft + topRight));
+            }
+            if (bottomLeft + bottomRight > width)
+            {
+                scale = Math.Min(scale, width / (bottomLeft + bottomRight));
+            }
+            if (topLeft + bottomLeft > height)
+            {
+                scale = Math.Min(scale, height / (topLeft + bottomLeft));
+            }
+            if (topRight + bottomRight > height)
+            {
+                scale = Math.Min(scale, height / (topRight + bottomRight));
+            }
+
+            if (scale < 1.0)
+            {
+                topLeft *= scale;
+                topRight *= scale;
+                bottomRight *= scale;
+                bottomLeft *= scale;
+            }
+
             var maxRadiusX = width / 2.0;
             var maxRadiusY = height / 2.0;
-            var topLeft = Math.Min(radius.TopLeft, Math.Min(maxRadiusX, maxRadiusY));
-            var topRight = Math.Min(radius.TopRight, Math.Min(maxRadiusX, maxRadiusY));
-            var bottomRight = Math.Min(radius.BottomRight, Math.Min(maxRadiusX, maxRadiusY));
-            var bottomLeft = Math.Min(radius.BottomLeft, Math.Min(maxRadiusX, maxRadiusY));
+            topLeft = Math.Min(topLeft, Math.Min(maxRadiusX, maxRadiusY));
+            topRight = Math.Min(topRight, Math.Min(maxRadiusX, maxRadiusY));
+            bottomRight = Math.Min(bottomRight, Math.Min(maxRadiusX, maxRadiusY));
+            bottomLeft = Math.Min(bottomLeft, Math.Min(maxRadiusX, maxRadiusY));
 
             var geometry = new StreamGeometry();
             using (var ctx = geometry.Open())
