@@ -14,6 +14,7 @@ namespace outlook_extension
         private HotkeyService _hotkeyService;
         private LoggingService _loggingService;
         private Outlook.Stores _stores;
+        private System.Threading.Thread _cacheWarmupThread;
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
@@ -23,7 +24,7 @@ namespace outlook_extension
             _searchService = new SearchService(_settingsService);
             _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService);
 
-            _folderService.InitializeCache();
+            StartCacheWarmupThread();
 
             Application.Explorers.NewExplorer += OnNewExplorer;
             _stores = Application.Session.Stores;
@@ -48,6 +49,7 @@ namespace outlook_extension
             }
 
             _hotkeyService?.Dispose();
+            DisposeCacheWarmupThread();
         }
 
         protected override Office.IRibbonExtensibility CreateRibbonExtensibilityObject()
@@ -347,6 +349,45 @@ namespace outlook_extension
         private void OnBeforeStoreRemove(Outlook.Store store, ref bool cancel)
         {
             _folderService.RefreshCache();
+        }
+
+        private void StartCacheWarmupThread()
+        {
+            if (_cacheWarmupThread != null || _folderService.WarmupStarted)
+            {
+                return;
+            }
+
+            _cacheWarmupThread = new System.Threading.Thread(() =>
+            {
+                Outlook.Application warmupApplication = null;
+                try
+                {
+                    warmupApplication = new Outlook.Application();
+                    _folderService.RefreshCache(warmupApplication);
+                }
+                catch (Exception ex)
+                {
+                    _loggingService.LogError("FolderCacheWarmup", ex);
+                }
+                finally
+                {
+                    if (warmupApplication != null)
+                    {
+                        Marshal.ReleaseComObject(warmupApplication);
+                    }
+                }
+            })
+            {
+                IsBackground = true
+            };
+            _cacheWarmupThread.SetApartmentState(System.Threading.ApartmentState.STA);
+            _cacheWarmupThread.Start();
+        }
+
+        private void DisposeCacheWarmupThread()
+        {
+            _cacheWarmupThread = null;
         }
 
         #region Von VSTO generierter Code
