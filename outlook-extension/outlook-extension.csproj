@@ -246,6 +246,8 @@
     <Compile Include="UI\QuickMoveWindow.cs" />
     <Compile Include="UI\SettingsWindow.cs" />
     <Compile Include="UI\WpfStyles.cs" />
+    <Compile Include="UI\CornerTokens.cs" />
+    <Compile Include="UI\ContinuousCornerBorder.cs" />
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <PropertyGroup>
