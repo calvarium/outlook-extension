@@ -274,6 +274,7 @@ namespace outlook_extension
             var uniqueEntryIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var selectionItem in selection)
             {
+                var currentCount = itemsToMove.Count;
                 var conversationHeader = selectionItem as Outlook.ConversationHeader;
                 if (conversationHeader != null)
                 {
@@ -286,7 +287,8 @@ namespace outlook_extension
                 if (mailItem != null)
                 {
                     AddConversationItemsFromItem(mailItem, itemsToMove, uniqueEntryIds);
-                    continue;
+                    if (currentCount != itemsToMove.Count)
+                        continue;
                 }
 
                 if (TryAddMovableItem(selectionItem, itemsToMove, uniqueEntryIds))
