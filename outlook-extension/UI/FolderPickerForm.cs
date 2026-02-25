@@ -19,6 +19,9 @@ namespace outlook_extension
             _folderService = folderService;
             _searchService = searchService;
 
+            // subscribe to cache updates
+            _folderService.CacheUpdated += OnCacheUpdated;
+
             Text = "Favoritenordner wählen";
             Width = 560;
             Height = 380;
@@ -40,6 +43,17 @@ namespace outlook_extension
             Shown += OnShown;
         }
 
+        private void OnCacheUpdated()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(UpdateResults));
+                return;
+            }
+
+            UpdateResults();
+        }
+
         private void OnShown(object sender, EventArgs e)
         {
             _searchBox.Focus();
@@ -55,6 +69,7 @@ namespace outlook_extension
         {
             var folders = _folderService.GetCachedFolders();
             _currentResults = _searchService.Search(_searchBox.Text, folders);
+            _resultsList.DataSource = null;
             _resultsList.DataSource = _currentResults;
             if (_currentResults.Count > 0)
             {

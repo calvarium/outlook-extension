@@ -18,12 +18,19 @@ namespace outlook_extension
         private readonly ListBox _resultsList;
         private List<FolderInfo> _currentResults = new List<FolderInfo>();
         private bool _isClosing;
+        private bool _eventsSubscribed;
+
+        private readonly StackPanel _statusBar;
+        private readonly TextBlock _statusText;
+        private readonly FrameworkElement _spinner;
 
         public QuickMoveWindow(FolderService folderService, SearchService searchService, ThisAddIn addIn)
         {
             _folderService = folderService;
             _searchService = searchService;
             _addIn = addIn;
+
+            // DO NOT subscribe to folder events here — subscribe after UI is initialized in Loaded to avoid races
 
             Width = 640;
             Height = 360;
@@ -53,6 +60,7 @@ namespace outlook_extension
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             _searchBox = WpfStyles.CreateTextBox();
             _searchBox.TextChanged += OnSearchTextChanged;
@@ -63,12 +71,39 @@ namespace outlook_extension
             layout.Children.Add(searchCard);
 
             _resultsList = WpfStyles.CreateListBox();
-            _resultsList.DisplayMemberPath = nameof(FolderInfo.DisplayText);
             _resultsList.KeyDown += OnResultsKeyDown;
             _resultsList.PreviewTextInput += OnResultsTextInput;
             _resultsList.MouseDoubleClick += (sender, args) => MoveSelectedFolder(false);
             _resultsList.SelectionChanged += (sender, args) => _searchBox.Focus();
             _resultsList.PreviewMouseDown += (sender, args) => _searchBox.Focus();
+
+            // set custom item template
+            var dataTemplate = new DataTemplate(typeof(FolderInfo));
+            var stackFactory = new FrameworkElementFactory(typeof(StackPanel));
+            stackFactory.SetValue(StackPanel.OrientationProperty, Orientation.Vertical);
+            stackFactory.SetValue(StackPanel.MarginProperty, new Thickness(6));
+
+            var titleFactory = new FrameworkElementFactory(typeof(TextBlock));
+            titleFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("DisplayName"));
+            titleFactory.SetValue(TextBlock.FontSizeProperty, 14.0);
+            titleFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+            titleFactory.SetValue(TextBlock.ForegroundProperty, WpfStyles.TextPrimary);
+            titleFactory.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+            // uppercase converter
+            var converter = new UppercaseConverter();
+            titleFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("DisplayName") { Converter = converter });
+
+            var pathFactory = new FrameworkElementFactory(typeof(TextBlock));
+            pathFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("FullPath"));
+            pathFactory.SetValue(TextBlock.FontSizeProperty, 12.0);
+            pathFactory.SetValue(TextBlock.ForegroundProperty, WpfStyles.TextSecondary);
+            pathFactory.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+
+            stackFactory.AppendChild(titleFactory);
+            stackFactory.AppendChild(pathFactory);
+
+            dataTemplate.VisualTree = stackFactory;
+            _resultsList.ItemTemplate = dataTemplate;
 
             var listCard = WpfStyles.CreateGlassCard(_resultsList);
             listCard.MouseLeftButtonDown += (sender, args) =>
@@ -82,6 +117,16 @@ namespace outlook_extension
             Grid.SetRow(listCard, 1);
             layout.Children.Add(listCard);
 
+            // status bar with spinner
+            _statusBar = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
+            _statusText = new TextBlock { Foreground = WpfStyles.TextSecondary, Margin = new Thickness(8, 6, 8, 6) };
+            _spinner = CreateSpinner();
+            _spinner.Visibility = Visibility.Collapsed;
+            _statusBar.Children.Add(_spinner);
+            _statusBar.Children.Add(_statusText);
+            Grid.SetRow(_statusBar, 2);
+            layout.Children.Add(_statusBar);
+
             rootBorder.Child = layout;
             rootBorder.MouseLeftButtonDown += (sender, args) =>
             {
@@ -94,11 +139,132 @@ namespace outlook_extension
 
             Loaded += (sender, args) =>
             {
+                // subscribe to events only after UI elements exist
+                if (!_eventsSubscribed)
+                {
+                    try
+                    {
+                        _folderService.CacheUpdated += OnCacheUpdated;
+                        _folderService.RefreshingChanged += OnRefreshingChanged;
+                        _folderService.ProgressUpdated += OnProgressUpdated;
+                        _eventsSubscribed = true;
+                    }
+                    catch { }
+                }
+
                 _searchBox.Focus();
                 UpdateResults();
             };
+
             Closing += (sender, args) => _isClosing = true;
             Deactivated += (sender, args) => CloseOnDeactivate();
+            Closed += (sender, args) => UnsubscribeEvents();
+        }
+
+        private FrameworkElement CreateSpinner()
+        {
+            var ellipse = new System.Windows.Shapes.Ellipse
+            {
+                Width = 16,
+                Height = 16,
+                Stroke = WpfStyles.TextSecondary,
+                StrokeThickness = 2,
+                Margin = new Thickness(8, 6, 8, 6)
+            };
+
+            var rotate = new System.Windows.Media.RotateTransform();
+            ellipse.RenderTransform = rotate;
+            ellipse.RenderTransformOrigin = new Point(0.5, 0.5);
+
+            var animation = new System.Windows.Media.Animation.DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(1)))
+            {
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+            };
+
+            rotate.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, animation);
+
+            return ellipse;
+        }
+
+        private void UnsubscribeEvents()
+        {
+            if (!_eventsSubscribed) return;
+            try
+            {
+                _folderService.CacheUpdated -= OnCacheUpdated;
+                _folderService.RefreshingChanged -= OnRefreshingChanged;
+                _folderService.ProgressUpdated -= OnProgressUpdated;
+            }
+            catch
+            {
+                // ignore
+            }
+            finally
+            {
+                _eventsSubscribed = false;
+            }
+        }
+
+        private void OnRefreshingChanged(bool isRefreshing)
+        {
+            // guard in case events fire before UI elements are initialized
+            if (_statusText == null || _spinner == null)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _statusText.Text = isRefreshing ? "Aktualisiere Ordner…" : string.Empty;
+                _spinner.Visibility = isRefreshing ? Visibility.Visible : Visibility.Collapsed;
+                if (!isRefreshing)
+                {
+                    // no-op
+                }
+            }), DispatcherPriority.Background);
+        }
+
+        private void OnProgressUpdated(int processed, int total)
+        {
+            // guard in case events fire before UI elements are initialized
+            if (_statusText == null)
+            {
+                return;
+            }
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (_statusText == null) return;
+                        if (total > 0)
+                        {
+                            _statusText.Text = $"Ordner geladen: {processed}/{total}";
+                        }
+                    }
+                    catch
+                    {
+                        // ignore UI update failures
+                    }
+                }), DispatcherPriority.Background);
+            }
+            catch
+            {
+                // ignore dispatcher exceptions
+            }
+        }
+
+        private void OnCacheUpdated()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!_isClosing)
+                {
+                    UpdateResults();
+                }
+            }), DispatcherPriority.Background);
         }
 
         private void CloseOnDeactivate()

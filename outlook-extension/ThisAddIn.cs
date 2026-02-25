@@ -13,8 +13,10 @@ namespace outlook_extension
         private SearchService _searchService;
         private HotkeyService _hotkeyService;
         private LoggingService _loggingService;
-        private Outlook.Stores _stores;
+        private Outlook.Stores _stores; // kept for compatibility but not assigned at startup
+        private System.Windows.Forms.Timer _startupTimer;
         private System.Threading.Thread _cacheWarmupThread;
+        private System.Threading.Timer _periodicRefreshTimer;
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
@@ -24,15 +26,12 @@ namespace outlook_extension
             _searchService = new SearchService(_settingsService);
             _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService);
 
-            StartCacheWarmupThread();
+            StartPostStartupTimer();
 
             Application.Explorers.NewExplorer += OnNewExplorer;
-            _stores = Application.Session.Stores;
-            _stores.StoreAdd += OnStoreChanged;
-            _stores.BeforeStoreRemove += OnBeforeStoreRemove;
 
-            _hotkeyService.RegisterShortcut();
-            RegisterHotkeyForExplorer(Application.ActiveExplorer());
+            // Do NOT enumerate Application.Session.Stores here — it's expensive and blocks the UI when many stores exist.
+            // Instead use background refresh and a periodic timer.
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -44,12 +43,19 @@ namespace outlook_extension
             {
                 _stores.StoreAdd -= OnStoreChanged;
                 _stores.BeforeStoreRemove -= OnBeforeStoreRemove;
-                Marshal.ReleaseComObject(_stores);
+                try
+                {
+                    Marshal.ReleaseComObject(_stores);
+                }
+                catch
+                {
+                    // ignore
+                }
                 _stores = null;
             }
 
             _hotkeyService?.Dispose();
-            DisposeCacheWarmupThread();
+            DisposePostStartupTimer();
         }
 
         protected override Office.IRibbonExtensibility CreateRibbonExtensibilityObject()
@@ -588,43 +594,103 @@ namespace outlook_extension
             _folderService.RefreshCache();
         }
 
-        private void StartCacheWarmupThread()
+        private void StartPostStartupTimer()
         {
-            if (_cacheWarmupThread != null || _folderService.WarmupStarted)
+            if (_startupTimer != null || _folderService.WarmupStarted || _cacheWarmupThread != null)
             {
                 return;
             }
 
-            _cacheWarmupThread = new System.Threading.Thread(() =>
+            _startupTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+            _startupTimer.Tick += (sender, args) =>
             {
-                Outlook.Application warmupApplication = null;
                 try
                 {
-                    warmupApplication = new Outlook.Application();
-                    _folderService.RefreshCache(warmupApplication);
-                }
-                catch (Exception ex)
-                {
-                    _loggingService.LogError("FolderCacheWarmup", ex);
+                    _startupTimer.Stop();
+
+                    // Do not access Application.Session.Stores here to avoid blocking the UI.
+
+                    try
+                    {
+                        _hotkeyService.RegisterShortcut();
+                        RegisterHotkeyForExplorer(Application.ActiveExplorer());
+                    }
+                    catch (Exception ex)
+                    {
+                        _loggingService.LogError("HotkeyPostStartup", ex);
+                    }
+
+                    // Trigger quick verification of persisted cache (non-blocking)
+                    try
+                    {
+                        _folderService.VerifyCacheOnStartup();
+                    }
+                    catch (Exception ex)
+                    {
+                        _loggingService.LogError("VerifyCachePostStartup", ex);
+                    }
+
+                    // Trigger initial cache refresh in background (FolderService.RefreshCache is non-blocking)
+                    try
+                    {
+                        _folderService.RefreshCache();
+                    }
+                    catch (Exception ex)
+                    {
+                        _loggingService.LogError("FolderCachePostStartup", ex);
+                    }
+
+                    // Start periodic background refresh every 5 minutes
+                    try
+                    {
+                        _periodicRefreshTimer = new System.Threading.Timer(_ =>
+                        {
+                            try
+                            {
+                                _folderService.RefreshCache();
+                            }
+                            catch (Exception ex)
+                            {
+                                _loggingService.LogError("FolderCachePeriodic", ex);
+                            }
+                        }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+                    }
+                    catch (Exception ex)
+                    {
+                        _loggingService.LogError("PeriodicRefreshTimer", ex);
+                    }
                 }
                 finally
                 {
-                    if (warmupApplication != null)
-                    {
-                        Marshal.ReleaseComObject(warmupApplication);
-                    }
+                    // no-op
                 }
-            })
-            {
-                IsBackground = true
             };
-            _cacheWarmupThread.SetApartmentState(System.Threading.ApartmentState.STA);
-            _cacheWarmupThread.Start();
+
+            _startupTimer.Start();
         }
 
-        private void DisposeCacheWarmupThread()
+        private void DisposePostStartupTimer()
         {
-            _cacheWarmupThread = null;
+            if (_startupTimer != null)
+            {
+                try
+                {
+                    _startupTimer.Stop();
+                    _startupTimer.Dispose();
+                }
+                catch { }
+                finally { _startupTimer = null; }
+            }
+
+            if (_periodicRefreshTimer != null)
+            {
+                try
+                {
+                    _periodicRefreshTimer.Dispose();
+                }
+                catch { }
+                finally { _periodicRefreshTimer = null; }
+            }
         }
 
         #region Von VSTO generierter Code

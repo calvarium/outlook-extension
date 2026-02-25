@@ -33,6 +33,9 @@ namespace outlook_extension
             _hotkeyAction = hotkeyAction;
             _loggingService = loggingService;
             _hotkeyWindow = new HotkeyWindow(OnHotkeyPressed);
+            // Create a dedicated (invisible) message window immediately.
+            _hotkeyWindow.CreateMessageWindow();
+
             _retryTimer = new Timer { Interval = 1000 };
             _retryTimer.Tick += (sender, args) => RetryRegister();
         }
@@ -53,7 +56,7 @@ namespace outlook_extension
 
             try
             {
-                var handle = GetOutlookWindowHandle();
+                var handle = _hotkeyWindow.WindowHandle;
                 if (handle != IntPtr.Zero)
                 {
                     UnregisterHotKey(handle, HotkeyId);
@@ -73,7 +76,7 @@ namespace outlook_extension
         {
             UnregisterShortcut();
             _retryTimer.Stop();
-            _hotkeyWindow.ReleaseHandle();
+            _hotkeyWindow.DestroyMessageWindow();
         }
 
         private void OnHotkeyPressed()
@@ -103,7 +106,7 @@ namespace outlook_extension
         {
             UnregisterShortcut();
 
-            var handle = GetOutlookWindowHandle();
+            var handle = _hotkeyWindow.WindowHandle;
             if (handle == IntPtr.Zero)
             {
                 if (!_retryTimer.Enabled)
@@ -113,13 +116,6 @@ namespace outlook_extension
                 return;
             }
 
-            if (_hotkeyWindow.Handle != IntPtr.Zero)
-            {
-                _hotkeyWindow.ReleaseHandle();
-            }
-
-            _hotkeyWindow.AssignHandle(handle);
-
             if (!ShortcutParser.TryParse(_settingsService.Current.Shortcut, out var modifiers, out var key))
             {
                 return;
@@ -128,22 +124,15 @@ namespace outlook_extension
             if (!RegisterHotKey(handle, HotkeyId, modifiers, key))
             {
                 _loggingService.LogInfo("Hotkey Registrierung fehlgeschlagen.");
+                if (!_retryTimer.Enabled)
+                {
+                    _retryTimer.Start();
+                }
                 return;
             }
 
             _isRegistered = true;
             _retryTimer.Stop();
-        }
-
-        private static IntPtr GetOutlookWindowHandle()
-        {
-            var handle = Process.GetCurrentProcess().MainWindowHandle;
-            if (handle != IntPtr.Zero)
-            {
-                return handle;
-            }
-
-            return GetForegroundWindow();
         }
 
         private class HotkeyWindow : NativeWindow
@@ -153,6 +142,39 @@ namespace outlook_extension
             public HotkeyWindow(Action callback)
             {
                 _callback = callback;
+            }
+
+            public IntPtr WindowHandle => base.Handle;
+
+            public void CreateMessageWindow()
+            {
+                try
+                {
+                    var cp = new CreateParams
+                    {
+                        Caption = "QuickMoveHotkeyWindow"
+                    };
+                    CreateHandle(cp);
+                }
+                catch
+                {
+                    // swallow - retries handled by HotkeyService
+                }
+            }
+
+            public void DestroyMessageWindow()
+            {
+                try
+                {
+                    if (base.Handle != IntPtr.Zero)
+                    {
+                        DestroyHandle();
+                    }
+                }
+                catch
+                {
+                    // ignore
+                }
             }
 
             protected override void WndProc(ref Message m)
@@ -171,8 +193,5 @@ namespace outlook_extension
 
         [DllImport("user32.dll")]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
     }
 }

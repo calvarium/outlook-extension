@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Json;
+using System.Threading;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace outlook_extension
@@ -15,12 +18,76 @@ namespace outlook_extension
         private readonly object _lock = new object();
         private bool _initialized;
         private bool _warmupStarted;
+        private volatile bool _isRefreshing;
+
+        private CancellationTokenSource _refreshCts;
+
+        private readonly string _cachePath;
+
+        public event Action CacheUpdated;
+        public event Action<bool> RefreshingChanged;
+        public event Action<int,int> ProgressUpdated; // processed, total
+
+        public bool IsRefreshing => _isRefreshing;
 
         public FolderService(Outlook.Application application, SettingsService settingsService, LoggingService loggingService)
         {
             _application = application;
             _settingsService = settingsService;
             _loggingService = loggingService;
+
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "QuickMoveOutlook");
+            Directory.CreateDirectory(folder);
+            _cachePath = Path.Combine(folder, "folders.json");
+
+            LoadCacheFromDisk();
+        }
+
+        private void LoadCacheFromDisk()
+        {
+            try
+            {
+                if (!File.Exists(_cachePath))
+                {
+                    return;
+                }
+
+                using (var stream = File.OpenRead(_cachePath))
+                {
+                    var serializer = new DataContractJsonSerializer(typeof(List<FolderInfo>));
+                    var list = (List<FolderInfo>)serializer.ReadObject(stream);
+                    if (list != null)
+                    {
+                        lock (_lock)
+                        {
+                            _cache.Clear();
+                            _cache.AddRange(list);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("LoadFolderCache", ex);
+            }
+        }
+
+        private void SaveCacheToDisk(List<FolderInfo> list)
+        {
+            try
+            {
+                using (var stream = File.Create(_cachePath))
+                {
+                    var serializer = new DataContractJsonSerializer(typeof(List<FolderInfo>));
+                    serializer.WriteObject(stream, list);
+                }
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("SaveFolderCache", ex);
+            }
         }
 
         public IReadOnlyList<FolderInfo> GetCachedFolders()
@@ -44,11 +111,153 @@ namespace outlook_extension
             _initialized = true;
         }
 
+        // Non-blocking public refresh: runs cache build on background STA thread
         public void RefreshCache()
         {
-            BuildCache(_application);
+            // cancel previous
+            try
+            {
+                _refreshCts?.Cancel();
+            }
+            catch { }
+
+            _refreshCts = new CancellationTokenSource();
+            var token = _refreshCts.Token;
+
+            if (_isRefreshing)
+            {
+                // let cancellation take effect and continue
+            }
+
+            _isRefreshing = true;
+            RefreshingChanged?.Invoke(true);
+
+            var thread = new System.Threading.Thread(() =>
+            {
+                Outlook.Application app = null;
+                try
+                {
+                    app = new Outlook.Application();
+
+                    var namespaceSession = app.Session;
+                    var stores = namespaceSession.Stores;
+
+                    // collect stores into a list to allow ordering and safe release
+                    var storeList = new List<Outlook.Store>();
+                    foreach (Outlook.Store s in stores)
+                    {
+                        storeList.Add(s);
+                    }
+
+                    // prioritize default store first if available
+                    Outlook.Store defaultStore = null;
+                    try
+                    {
+                        defaultStore = app.Session.DefaultStore;
+                    }
+                    catch { }
+
+                    var ordered = new List<Outlook.Store>();
+                    if (defaultStore != null)
+                    {
+                        var match = storeList.FirstOrDefault(x => string.Equals(x.StoreID, defaultStore.StoreID, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            ordered.Add(match);
+                        }
+                    }
+
+                    // add remaining stores
+                    ordered.AddRange(storeList.Where(s => ordered.All(o => o.StoreID != s.StoreID)));
+
+                    // total count for progress
+                    var total = ordered.Count;
+                    var processed = 0;
+
+                    var cumulative = new List<FolderInfo>();
+
+                    foreach (var store in ordered)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        try
+                        {
+                            var perStore = BuildCacheForStore(store, token);
+                            if (perStore != null && perStore.Count > 0)
+                            {
+                                cumulative.AddRange(perStore);
+
+                                lock (_lock)
+                                {
+                                    _cache.Clear();
+                                    _cache.AddRange(cumulative);
+                                }
+
+                                // persist intermediate state and notify UI
+                                SaveCacheToDisk(cumulative);
+                                CacheUpdated?.Invoke();
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            _loggingService.LogError("FolderCacheStore", ex);
+                        }
+                        finally
+                        {
+                            try { if (store != null) Marshal.ReleaseComObject(store); } catch { }
+                        }
+
+                        processed++;
+                        ProgressUpdated?.Invoke(processed, total);
+                    }
+
+                    try { if (stores != null) Marshal.ReleaseComObject(stores); } catch { }
+
+                    lock (_lock)
+                    {
+                        _initialized = true;
+                    }
+
+                    // final save (redundant if last store persisted)
+                    SaveCacheToDisk(cumulative);
+                    CacheUpdated?.Invoke();
+                }
+                catch (OperationCanceledException)
+                {
+                    // canceled - ignore
+                }
+                catch (Exception ex)
+                {
+                    _loggingService.LogError("FolderCache", ex);
+                }
+                finally
+                {
+                    try
+                    {
+                        if (app != null)
+                        {
+                            Marshal.ReleaseComObject(app);
+                        }
+                    }
+                    catch { }
+
+                    _isRefreshing = false;
+                    RefreshingChanged?.Invoke(false);
+                }
+            })
+            {
+                IsBackground = true
+            };
+
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
         }
 
+        // Warmup/synchronous refresh when caller provides an Outlook.Application already on STA thread
         public void RefreshCache(Outlook.Application application)
         {
             if (application == null)
@@ -57,49 +266,242 @@ namespace outlook_extension
             }
 
             _warmupStarted = true;
-            BuildCache(application);
+            try
+            {
+                // similar incremental processing but synchronous
+                var namespaceSession = application.Session;
+                var stores = namespaceSession.Stores;
+
+                var storeList = new List<Outlook.Store>();
+                foreach (Outlook.Store s in stores)
+                {
+                    storeList.Add(s);
+                }
+
+                Outlook.Store defaultStore = null;
+                try { defaultStore = application.Session.DefaultStore; } catch { }
+
+                var ordered = new List<Outlook.Store>();
+                if (defaultStore != null)
+                {
+                    var match = storeList.FirstOrDefault(x => string.Equals(x.StoreID, defaultStore.StoreID, StringComparison.OrdinalIgnoreCase));
+                    if (match != null) ordered.Add(match);
+                }
+                ordered.AddRange(storeList.Where(s => ordered.All(o => o.StoreID != s.StoreID)));
+
+                var cumulative = new List<FolderInfo>();
+                foreach (var store in ordered)
+                {
+                    var perStore = BuildCacheForStore(store, CancellationToken.None);
+                    if (perStore != null && perStore.Count > 0)
+                    {
+                        cumulative.AddRange(perStore);
+                    }
+
+                    try { if (store != null) Marshal.ReleaseComObject(store); } catch { }
+                }
+
+                try { if (stores != null) Marshal.ReleaseComObject(stores); } catch { }
+
+                lock (_lock)
+                {
+                    _cache.Clear();
+                    _cache.AddRange(cumulative);
+                    _initialized = true;
+                }
+
+                SaveCacheToDisk(cumulative);
+                CacheUpdated?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("FolderCache", ex);
+            }
         }
 
-        private void BuildCache(Outlook.Application application)
+        // Quick verification of existing cached entries on startup. Runs on background STA thread and updates cache with present folders.
+        public void VerifyCacheOnStartup()
         {
-            lock (_lock)
+            // cancel any running refresh and start a short verify
+            try { _refreshCts?.Cancel(); } catch { }
+            _refreshCts = new CancellationTokenSource();
+            var token = _refreshCts.Token;
+
+            if (_isRefreshing)
             {
-                _cache.Clear();
+                // wait for ongoing refresh to stop or let it be canceled
+            }
+
+            _isRefreshing = true;
+            RefreshingChanged?.Invoke(true);
+
+            var thread = new System.Threading.Thread(() =>
+            {
+                Outlook.Application app = null;
                 try
                 {
-                    var namespaceSession = application.Session;
-                    var stores = namespaceSession.Stores;
-                    foreach (Outlook.Store store in stores)
+                    app = new Outlook.Application();
+                    List<FolderInfo> currentCacheSnapshot;
+                    lock (_lock)
                     {
-                        if (!ShouldIncludeStore(store))
-                        {
-                            Marshal.ReleaseComObject(store);
-                            continue;
-                        }
+                        currentCacheSnapshot = _cache.ToList();
+                    }
 
-                        var rootFolder = store.GetRootFolder();
+                    var updated = new List<FolderInfo>();
+                    var processed = 0;
+
+                    foreach (var cached in currentCacheSnapshot)
+                    {
+                        if (token.IsCancellationRequested) break;
+
                         try
                         {
-                            TraverseFolder(rootFolder, store.DisplayName, new Stack<string>());
+                            if (string.IsNullOrWhiteSpace(cached.EntryId) || string.IsNullOrWhiteSpace(cached.StoreId))
+                            {
+                                continue;
+                            }
+
+                            Outlook.MAPIFolder folder = null;
+                            try
+                            {
+                                folder = app.Session.GetFolderFromID(cached.EntryId, cached.StoreId);
+                            }
+                            catch
+                            {
+                                folder = null;
+                            }
+
+                            if (folder == null)
+                            {
+                                // folder no longer exists
+                                continue;
+                            }
+
+                            try
+                            {
+                                var mailboxName = folder.Store?.DisplayName ?? cached.MailboxName;
+                                var pathParts = new Stack<string>();
+                                try
+                                {
+                                    var current = folder as Outlook.MAPIFolder;
+                                    while (current != null)
+                                    {
+                                        pathParts.Push(current.Name);
+                                        var parent = current.Parent as Outlook.MAPIFolder;
+                                        if (parent == null)
+                                            break;
+                                        current = parent;
+                                    }
+                                }
+                                catch { }
+
+                                var folderPath = pathParts.Count > 0 ? string.Join(" > ", pathParts) : cached.FolderPath;
+
+                                var info = new FolderInfo
+                                {
+                                    EntryId = cached.EntryId,
+                                    StoreId = cached.StoreId,
+                                    DisplayName = folder.Name ?? cached.DisplayName,
+                                    MailboxName = mailboxName,
+                                    FolderPath = folderPath,
+                                    FullPath = string.IsNullOrEmpty(mailboxName) ? folderPath : $"{mailboxName} > {folderPath}",
+                                    IsUnderInbox = (folderPath ?? string.Empty).StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase)
+                                };
+
+                                updated.Add(info);
+                            }
+                            finally
+                            {
+                                try { if (folder != null) Marshal.ReleaseComObject(folder); } catch { }
+                            }
                         }
-                        finally
+                        catch (Exception exInner)
                         {
-                            Marshal.ReleaseComObject(rootFolder);
-                            Marshal.ReleaseComObject(store);
+                            _loggingService.LogError("VerifyCacheItem", exInner);
+                        }
+
+                        processed++;
+                        ProgressUpdated?.Invoke(processed, currentCacheSnapshot.Count);
+                    }
+
+                    lock (_lock)
+                    {
+                        var changed = false;
+                        if (updated.Count != _cache.Count)
+                        {
+                            changed = true;
+                        }
+                        else
+                        {
+                            for (int i = 0; i < updated.Count; i++)
+                            {
+                                if (!updated[i].Identifier.Equals(_cache[i].Identifier))
+                                {
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (changed)
+                        {
+                            _cache.Clear();
+                            _cache.AddRange(updated);
+                            SaveCacheToDisk(updated);
                         }
                     }
 
-                    Marshal.ReleaseComObject(stores);
+                    CacheUpdated?.Invoke();
+                }
+                catch (OperationCanceledException)
+                {
+                    // ignored
                 }
                 catch (Exception ex)
                 {
-                    _loggingService.LogError("FolderCache", ex);
+                    _loggingService.LogError("VerifyCacheOnStartup", ex);
                 }
                 finally
                 {
-                    _initialized = true;
+                    try { if (app != null) Marshal.ReleaseComObject(app); } catch { }
+                    _isRefreshing = false;
+                    RefreshingChanged?.Invoke(false);
                 }
+            })
+            {
+                IsBackground = true
+            };
+
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+        }
+
+        private List<FolderInfo> BuildCacheForStore(Outlook.Store store, CancellationToken token)
+        {
+            var result = new List<FolderInfo>();
+
+            if (store == null) return result;
+
+            Outlook.MAPIFolder rootFolder = null;
+            try
+            {
+                rootFolder = store.GetRootFolder();
+                TraverseFolderForBuild(rootFolder, store.DisplayName, new Stack<string>(), result, token);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _loggingService.LogError("BuildCacheForStore", ex);
+            }
+            finally
+            {
+                try { if (rootFolder != null) Marshal.ReleaseComObject(rootFolder); } catch { }
+            }
+
+            return result;
         }
 
         public Outlook.MAPIFolder ResolveFolder(FolderInfo info)
@@ -125,9 +527,9 @@ namespace outlook_extension
             }
         }
 
-        private void TraverseFolder(Outlook.MAPIFolder folder, string mailboxName, Stack<string> path)
+        private void TraverseFolderForBuild(Outlook.MAPIFolder folder, string mailboxName, Stack<string> path, List<FolderInfo> target, CancellationToken token)
         {
-            if (folder == null)
+            if (folder == null || token.IsCancellationRequested)
             {
                 return;
             }
@@ -148,17 +550,29 @@ namespace outlook_extension
                         FullPath = $"{mailboxName} > {folderPath}",
                         IsUnderInbox = folderPath.StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase)
                     };
-                    _cache.Add(info);
+                    target.Add(info);
                 }
 
                 var folders = folder.Folders;
                 foreach (Outlook.MAPIFolder child in folders)
                 {
-                    TraverseFolder(child, mailboxName, path);
-                    Marshal.ReleaseComObject(child);
+                    if (token.IsCancellationRequested) break;
+
+                    try
+                    {
+                        TraverseFolderForBuild(child, mailboxName, path, target, token);
+                    }
+                    finally
+                    {
+                        if (child != null) Marshal.ReleaseComObject(child);
+                    }
                 }
 
-                Marshal.ReleaseComObject(folders);
+                if (folders != null) Marshal.ReleaseComObject(folders);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -188,6 +602,18 @@ namespace outlook_extension
                 || displayName.IndexOf("Archive", StringComparison.OrdinalIgnoreCase) >= 0
                 || filePath.IndexOf("archive", StringComparison.OrdinalIgnoreCase) >= 0
                 || filePath.IndexOf("archiv", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        public void CancelRefresh()
+        {
+            try
+            {
+                _refreshCts?.Cancel();
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 }
