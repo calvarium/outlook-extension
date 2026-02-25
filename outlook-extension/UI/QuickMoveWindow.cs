@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace outlook_extension
@@ -23,6 +25,8 @@ namespace outlook_extension
         private readonly StackPanel _statusBar;
         private readonly TextBlock _statusText;
         private readonly FrameworkElement _spinner;
+        private readonly ProgressBar _progressBar;
+        private readonly FrameworkElement _checkIcon;
 
         public QuickMoveWindow(FolderService folderService, SearchService searchService, ThisAddIn addIn)
         {
@@ -122,10 +126,18 @@ namespace outlook_extension
             _statusText = new TextBlock { Foreground = WpfStyles.TextSecondary, Margin = new Thickness(8, 6, 8, 6) };
             _spinner = CreateSpinner();
             _spinner.Visibility = Visibility.Collapsed;
+            _progressBar = new ProgressBar { Width = 140, Height = 12, Margin = new Thickness(8, 10, 8, 8), Visibility = Visibility.Collapsed, Foreground = WpfStyles.AccentBackground, Background = WpfStyles.GlassBackground };
+            _checkIcon = CreateCheckIcon();
+            _checkIcon.Visibility = Visibility.Collapsed;
             _statusBar.Children.Add(_spinner);
+            _statusBar.Children.Add(_progressBar);
+            _statusBar.Children.Add(_checkIcon);
             _statusBar.Children.Add(_statusText);
             Grid.SetRow(_statusBar, 2);
             layout.Children.Add(_statusBar);
+
+            // keep status bar visible permanently (it will update contents based on refresh state)
+            _statusBar.Visibility = Visibility.Visible;
 
             rootBorder.Child = layout;
             rootBorder.MouseLeftButtonDown += (sender, args) =>
@@ -138,23 +150,53 @@ namespace outlook_extension
             Content = rootBorder;
 
             Loaded += (sender, args) =>
-            {
-                // subscribe to events only after UI elements exist
-                if (!_eventsSubscribed)
-                {
-                    try
-                    {
-                        _folderService.CacheUpdated += OnCacheUpdated;
-                        _folderService.RefreshingChanged += OnRefreshingChanged;
-                        _folderService.ProgressUpdated += OnProgressUpdated;
-                        _eventsSubscribed = true;
-                    }
-                    catch { }
-                }
+             {
+                 // subscribe to events only after UI elements exist
+                 if (!_eventsSubscribed)
+                 {
+                     try
+                     {
+                         _folderService.CacheUpdated += OnCacheUpdated;
+                         _folderService.RefreshingChanged += OnRefreshingChanged;
+                         _folderService.ProgressUpdated += OnProgressUpdated;
+                         _folderService.FullRefreshCompleted += OnFullRefreshCompleted;
+                         _eventsSubscribed = true;
+                     }
+                     catch { }
+                 }
 
-                _searchBox.Focus();
-                UpdateResults();
-            };
+                 _searchBox.Focus();
+                 UpdateResults();
+
+                 // initialize status display from folder service current state
+                 try
+                 {
+                     if (_folderService.IsRefreshing)
+                     {
+                         OnRefreshingChanged(true);
+
+                         var lastProcessed = _folderService.LastProgressProcessed;
+                         var lastTotal = _folderService.LastProgressTotal;
+                         if (lastTotal > 0)
+                         {
+                             OnProgressUpdated(lastProcessed, lastTotal);
+                         }
+                     }
+
+                     // If cache is empty and no refresh in progress, trigger a refresh and show spinner
+                     var folders = _folderService.GetCachedFolders();
+                     if ((folders == null || folders.Count == 0) && !_folderService.IsRefreshing)
+                     {
+                         try
+                         {
+                             OnRefreshingChanged(true);
+                             _folderService.RefreshCache();
+                         }
+                         catch { }
+                     }
+                 }
+                 catch { }
+             };
 
             Closing += (sender, args) => _isClosing = true;
             Deactivated += (sender, args) => CloseOnDeactivate();
@@ -167,8 +209,8 @@ namespace outlook_extension
             {
                 Width = 16,
                 Height = 16,
-                Stroke = WpfStyles.TextSecondary,
-                StrokeThickness = 2,
+                Stroke = WpfStyles.TextPrimary,
+                StrokeThickness = 3,
                 Margin = new Thickness(8, 6, 8, 6)
             };
 
@@ -186,6 +228,36 @@ namespace outlook_extension
             return ellipse;
         }
 
+        private FrameworkElement CreateCheckIcon()
+        {
+            // Use a vector path for the checkmark to avoid font glyph issues
+            var path = new System.Windows.Shapes.Path
+            {
+                Stroke = new SolidColorBrush(Color.FromRgb(88, 196, 110)),
+                StrokeThickness = 2.5,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round,
+                Width = 18,
+                Height = 18,
+                Margin = new Thickness(8, 4, 8, 4),
+                VerticalAlignment = VerticalAlignment.Center,
+                Data = Geometry.Parse("M2,10 L7,15 L16,4")
+            };
+
+            // Put path in a Viewbox so it scales nicely with layout
+            var box = new Viewbox
+            {
+                Width = 18,
+                Height = 18,
+                Child = path,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 4, 4, 4)
+            };
+
+            return box;
+        }
+
         private void UnsubscribeEvents()
         {
             if (!_eventsSubscribed) return;
@@ -194,6 +266,8 @@ namespace outlook_extension
                 _folderService.CacheUpdated -= OnCacheUpdated;
                 _folderService.RefreshingChanged -= OnRefreshingChanged;
                 _folderService.ProgressUpdated -= OnProgressUpdated;
+                _folderService.FullRefreshCompleted -= OnFullRefreshCompleted;
+                _eventsSubscribed = false;
             }
             catch
             {
@@ -208,18 +282,35 @@ namespace outlook_extension
         private void OnRefreshingChanged(bool isRefreshing)
         {
             // guard in case events fire before UI elements are initialized
-            if (_statusText == null || _spinner == null)
+            if (_statusText == null || _spinner == null || _progressBar == null || _checkIcon == null || _statusBar == null)
             {
                 return;
             }
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                _statusText.Text = isRefreshing ? "Aktualisiere Ordner…" : string.Empty;
-                _spinner.Visibility = isRefreshing ? Visibility.Visible : Visibility.Collapsed;
-                if (!isRefreshing)
+                if (isRefreshing)
                 {
-                    // no-op
+                    // show running state
+                    _statusBar.Visibility = Visibility.Visible;
+                    _statusText.Text = "Aktualisiere Ordner…";
+                    _spinner.Visibility = Visibility.Visible;
+                    _checkIcon.Visibility = Visibility.Collapsed;
+                    _progressBar.IsIndeterminate = true;
+                    _progressBar.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    // show success state but keep status bar visible
+                    _spinner.Visibility = Visibility.Collapsed;
+                    _progressBar.IsIndeterminate = false;
+                    _progressBar.Visibility = Visibility.Collapsed;
+                    _progressBar.Value = 0;
+
+                    _checkIcon.Visibility = Visibility.Visible;
+                    _statusText.Text = "Auf dem aktuellen Stand";
+
+                    _statusBar.Visibility = Visibility.Visible;
                 }
             }), DispatcherPriority.Background);
         }
@@ -227,33 +318,39 @@ namespace outlook_extension
         private void OnProgressUpdated(int processed, int total)
         {
             // guard in case events fire before UI elements are initialized
-            if (_statusText == null)
+            if (_statusText == null || _progressBar == null || _statusBar == null)
             {
                 return;
             }
 
-            try
+            // Only update progress UI while a refresh is running
+            if (!_folderService.IsRefreshing)
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
                 {
-                    try
+                    if (_statusText == null) return;
+                    if (total > 0)
                     {
-                        if (_statusText == null) return;
-                        if (total > 0)
-                        {
-                            _statusText.Text = $"Ordner geladen: {processed}/{total}";
-                        }
+                        _statusBar.Visibility = Visibility.Visible;
+                        _checkIcon.Visibility = Visibility.Collapsed;
+                        _progressBar.IsIndeterminate = false;
+                        _progressBar.Minimum = 0;
+                        _progressBar.Maximum = total;
+                        _progressBar.Value = processed;
+                        _progressBar.Visibility = Visibility.Visible;
+                        _statusText.Text = $"Ordner geladen: {processed}/{total}";
                     }
-                    catch
-                    {
-                        // ignore UI update failures
-                    }
-                }), DispatcherPriority.Background);
-            }
-            catch
-            {
-                // ignore dispatcher exceptions
-            }
+                }
+                catch
+                {
+                    // ignore UI update failures
+                }
+            }), DispatcherPriority.Background);
         }
 
         private void OnCacheUpdated()
@@ -428,6 +525,22 @@ namespace outlook_extension
                 _isClosing = true;
                 Close();
             }
+        }
+        
+        private void OnFullRefreshCompleted()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // show success state only when the entire refresh completed
+                _spinner.Visibility = Visibility.Collapsed;
+                _progressBar.IsIndeterminate = false;
+                _progressBar.Visibility = Visibility.Collapsed;
+                _progressBar.Value = 0;
+
+                _checkIcon.Visibility = Visibility.Visible;
+                _statusText.Text = "Auf dem aktuellen Stand";
+                _statusBar.Visibility = Visibility.Visible;
+            }), DispatcherPriority.Background);
         }
     }
 }

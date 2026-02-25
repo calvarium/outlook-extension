@@ -19,6 +19,7 @@ namespace outlook_extension
         private bool _initialized;
         private bool _warmupStarted;
         private volatile bool _isRefreshing;
+        private volatile bool _isVerifying;
 
         private CancellationTokenSource _refreshCts;
 
@@ -27,8 +28,14 @@ namespace outlook_extension
         public event Action CacheUpdated;
         public event Action<bool> RefreshingChanged;
         public event Action<int,int> ProgressUpdated; // processed, total
+        public event Action FullRefreshCompleted;
+
+        private int _lastProgressProcessed;
+        private int _lastProgressTotal;
 
         public bool IsRefreshing => _isRefreshing;
+        public int LastProgressProcessed => _lastProgressProcessed;
+        public int LastProgressTotal => _lastProgressTotal;
 
         public FolderService(Outlook.Application application, SettingsService settingsService, LoggingService loggingService)
         {
@@ -135,6 +142,8 @@ namespace outlook_extension
             var thread = new System.Threading.Thread(() =>
             {
                 Outlook.Application app = null;
+                var isFullRefresh = true;
+                var refreshCompleted = false;
                 try
                 {
                     app = new Outlook.Application();
@@ -195,6 +204,10 @@ namespace outlook_extension
 
                                 // persist intermediate state and notify UI
                                 SaveCacheToDisk(cumulative);
+                                // update last progress for this store
+                                _lastProgressProcessed = processed + 1; // processed stores count
+                                _lastProgressTotal = total;
+                                ProgressUpdated?.Invoke(_lastProgressProcessed, _lastProgressTotal);
                                 CacheUpdated?.Invoke();
                             }
                         }
@@ -212,7 +225,6 @@ namespace outlook_extension
                         }
 
                         processed++;
-                        ProgressUpdated?.Invoke(processed, total);
                     }
 
                     try { if (stores != null) Marshal.ReleaseComObject(stores); } catch { }
@@ -225,6 +237,7 @@ namespace outlook_extension
                     // final save (redundant if last store persisted)
                     SaveCacheToDisk(cumulative);
                     CacheUpdated?.Invoke();
+                    refreshCompleted = !token.IsCancellationRequested && processed >= total;
                 }
                 catch (OperationCanceledException)
                 {
@@ -246,6 +259,15 @@ namespace outlook_extension
                     catch { }
 
                     _isRefreshing = false;
+                    // notify full refresh completed only if the refresh actually finished all stores
+                    try
+                    {
+                        if (isFullRefresh && refreshCompleted)
+                        {
+                            FullRefreshCompleted?.Invoke();
+                        }
+                    }
+                    catch { }
                     RefreshingChanged?.Invoke(false);
                 }
             })
@@ -327,13 +349,13 @@ namespace outlook_extension
             _refreshCts = new CancellationTokenSource();
             var token = _refreshCts.Token;
 
-            if (_isRefreshing)
+            if (_isRefreshing || _isVerifying)
             {
-                // wait for ongoing refresh to stop or let it be canceled
+                // don't start verify if a full refresh or another verify is running
+                return;
             }
 
-            _isRefreshing = true;
-            RefreshingChanged?.Invoke(true);
+            _isVerifying = true;
 
             var thread = new System.Threading.Thread(() =>
             {
@@ -421,7 +443,9 @@ namespace outlook_extension
                         }
 
                         processed++;
-                        ProgressUpdated?.Invoke(processed, currentCacheSnapshot.Count);
+                        _lastProgressProcessed = processed;
+                        _lastProgressTotal = currentCacheSnapshot.Count;
+                        ProgressUpdated?.Invoke(_lastProgressProcessed, _lastProgressTotal);
                     }
 
                     lock (_lock)
@@ -464,17 +488,17 @@ namespace outlook_extension
                 finally
                 {
                     try { if (app != null) Marshal.ReleaseComObject(app); } catch { }
-                    _isRefreshing = false;
-                    RefreshingChanged?.Invoke(false);
+                    _isVerifying = false;
+                    // Do not fire RefreshingChanged here; Verify is not a full refresh
                 }
-            })
-            {
-                IsBackground = true
-            };
-
-            thread.SetApartmentState(System.Threading.ApartmentState.STA);
-            thread.Start();
-        }
+             })
+             {
+                 IsBackground = true
+             };
+ 
+             thread.SetApartmentState(System.Threading.ApartmentState.STA);
+             thread.Start();
+         }
 
         private List<FolderInfo> BuildCacheForStore(Outlook.Store store, CancellationToken token)
         {
