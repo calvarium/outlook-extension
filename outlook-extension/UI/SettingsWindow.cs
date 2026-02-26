@@ -14,6 +14,7 @@ namespace outlook_extension
         private readonly SettingsService _settingsService;
         private readonly HotkeyService _hotkeyService;
         private readonly TextBox _shortcutBox;
+        private readonly TextBox _settingsShortcutBox;
         private readonly ListBox _favoritesList;
         private readonly TextBox _maxRecentsBox;
         private readonly CheckBox _showInboxOnly;
@@ -51,6 +52,10 @@ namespace outlook_extension
             _shortcutBox = WpfStyles.CreateTextBox(_settingsService.Current.Shortcut);
             _shortcutBox.IsReadOnly = true;
             _shortcutBox.KeyDown += OnShortcutKeyDown;
+
+            _settingsShortcutBox = WpfStyles.CreateTextBox(_settingsService.Current.SettingsShortcut);
+            _settingsShortcutBox.IsReadOnly = true;
+            _settingsShortcutBox.KeyDown += OnShortcutKeyDown;
 
             _favoritesList = WpfStyles.CreateListBox();
             _favoritesList.DisplayMemberPath = nameof(FavoriteItem.Label);
@@ -157,10 +162,16 @@ namespace outlook_extension
             Grid.SetColumn(shortcutCard, 1);
             grid.Children.Add(shortcutCard);
 
-            AddLabel(grid, "Favoriten", 0, 1);
+            AddLabel(grid, "Shortcut (Einstellungen)", 0, 1);
+            var settingsShortcutCard = WpfStyles.CreateInputCard(_settingsShortcutBox);
+            settingsShortcutCard.MinHeight = 40;
+            Grid.SetRow(settingsShortcutCard, 1);
+            Grid.SetColumn(settingsShortcutCard, 1);
+            grid.Children.Add(settingsShortcutCard);
+
             var favoritesCard = WpfStyles.CreateGlassCard(_favoritesList);
             favoritesCard.Height = 180;
-            Grid.SetRow(favoritesCard, 1);
+            Grid.SetRow(favoritesCard, 2);
             Grid.SetColumn(favoritesCard, 1);
             grid.Children.Add(favoritesCard);
 
@@ -183,11 +194,11 @@ namespace outlook_extension
             favoritesButtons.Children.Add(removeFavorite);
             favoritesButtons.Children.Add(moveUp);
             favoritesButtons.Children.Add(moveDown);
-            Grid.SetRow(favoritesButtons, 2);
+            Grid.SetRow(favoritesButtons, 3);
             Grid.SetColumn(favoritesButtons, 1);
             grid.Children.Add(favoritesButtons);
 
-            AddLabel(grid, "Anzahl letzte Ziele", 0, 3);
+            AddLabel(grid, "Anzahl letzte Ziele", 0, 4);
             var recentsPanel = new Grid();
             recentsPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             recentsPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -209,23 +220,23 @@ namespace outlook_extension
             recentsPanel.Children.Add(upDownPanel);
             var recentsCard = WpfStyles.CreateInputCard(recentsPanel);
             recentsCard.MinHeight = 40;
-            Grid.SetRow(recentsCard, 3);
+            Grid.SetRow(recentsCard, 4);
             Grid.SetColumn(recentsCard, 1);
             grid.Children.Add(recentsCard);
 
-            Grid.SetRow(_showInboxOnly, 4);
+            Grid.SetRow(_showInboxOnly, 5);
             Grid.SetColumn(_showInboxOnly, 1);
             _showInboxOnly.Margin = new Thickness(0, 12, 0, 0);
             grid.Children.Add(_showInboxOnly);
 
-            Grid.SetRow(_includeArchives, 5);
+            Grid.SetRow(_includeArchives, 6);
             Grid.SetColumn(_includeArchives, 1);
             _includeArchives.Margin = new Thickness(0, 8, 0, 0);
             grid.Children.Add(_includeArchives);
 
             var refreshButton = WpfStyles.CreateSubtleButton("Ordnerliste neu laden");
             refreshButton.Click += (sender, args) => _folderService.RefreshCache();
-            Grid.SetRow(refreshButton, 6);
+            Grid.SetRow(refreshButton, 7);
             Grid.SetColumn(refreshButton, 1);
             refreshButton.Margin = new Thickness(0, 14, 0, 0);
             grid.Children.Add(refreshButton);
@@ -286,6 +297,7 @@ namespace outlook_extension
             if (!string.IsNullOrWhiteSpace(formatted))
             {
                 _shortcutBox.Text = formatted;
+                _settingsShortcutBox.Text = formatted;
             }
 
             e.Handled = true;
@@ -410,8 +422,19 @@ namespace outlook_extension
                 return;
             }
 
+            if (!ShortcutParser.TryParse(_settingsShortcutBox.Text, out _, out _))
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    "Der Shortcut für Einstellungen ist ungültig.",
+                    "Quick Move",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Warning);
+                return;
+            }
+
             NormalizeRecents();
             _settingsService.Current.Shortcut = _shortcutBox.Text;
+            _settingsService.Current.SettingsShortcut = _settingsShortcutBox.Text;
             _settingsService.Current.MaxRecents = int.Parse(_maxRecentsBox.Text);
             _settingsService.Current.ShowInboxOnly = _showInboxOnly.IsChecked ?? false;
             _settingsService.Current.IncludeArchives = _includeArchives.IsChecked ?? false;

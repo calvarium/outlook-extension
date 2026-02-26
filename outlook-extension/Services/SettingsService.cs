@@ -46,6 +46,12 @@ namespace outlook_extension
                     Current.Shortcut = "Alt+Shift+M";
                     Save();
                 }
+
+                if (string.IsNullOrWhiteSpace(Current.SettingsShortcut))
+                {
+                    Current.SettingsShortcut = "Shift+Alt+O";
+                    Save();
+                }
             }
             catch (Exception ex)
             {

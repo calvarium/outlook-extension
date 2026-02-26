@@ -28,7 +28,7 @@ namespace outlook_extension
             _settingsService = new SettingsService(_loggingService);
             _folderService = new FolderService(Application, _settingsService, _loggingService);
             _searchService = new SearchService(_settingsService);
-            _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService);
+            _hotkeyService = new HotkeyService(Application, _settingsService, OpenQuickMoveDialog, _loggingService, OpenSettingsDialog);
 
             StartPostStartupTimer();
 
@@ -95,6 +95,67 @@ namespace outlook_extension
             var dialog = new SettingsWindow(_folderService, _settingsService, _hotkeyService);
             SetWindowOwner(dialog);
             dialog.ShowDialog();
+        }
+
+        public void NavigateToFolder(FolderInfo targetFolder)
+        {
+            if (targetFolder == null)
+            {
+                return;
+            }
+
+            Outlook.MAPIFolder folder = null;
+            try
+            {
+                folder = _folderService.ResolveFolder(targetFolder);
+                if (folder == null)
+                {
+                    try { _loggingService.LogInfo($"NavigateToFolder: Zielordner nicht gefunden: {targetFolder?.DisplayText}"); } catch { }
+                    return;
+                }
+
+                try
+                {
+                    var explorer = Application.ActiveExplorer();
+                    if (explorer == null)
+                    {
+                        // try to get any open explorer
+                        try
+                        {
+                            var exs = Application.Explorers;
+                            foreach (Outlook.Explorer e in exs)
+                            {
+                                explorer = e;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (explorer != null)
+                    {
+                        try
+                        {
+                            explorer.CurrentFolder = folder;
+                        }
+                        catch (Exception ex)
+                        {
+                            _loggingService.LogError("NavigateSetFolder", ex);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _loggingService.LogError("NavigateToFolder", ex);
+                }
+            }
+            finally
+            {
+                if (folder != null)
+                {
+                    try { Marshal.ReleaseComObject(folder); } catch { }
+                }
+            }
         }
 
         private void SetWindowOwner(System.Windows.Window dialog)

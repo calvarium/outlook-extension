@@ -511,20 +511,35 @@ namespace outlook_extension
                 return;
             }
 
-            var moved = _addIn.MoveSelectionToFolder(selected, keepDialogOpen);
-            if (moved)
+            // If Ctrl is held, perform move; otherwise navigate to the selected folder in Outlook
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             {
-                if (keepDialogOpen)
+                var moved = _addIn.MoveSelectionToFolder(selected, keepDialogOpen);
+                if (moved)
                 {
-                    _searchBox.SelectAll();
-                    _searchBox.Focus();
-                    UpdateResults();
-                    return;
-                }
+                    if (keepDialogOpen)
+                    {
+                        _searchBox.SelectAll();
+                        _searchBox.Focus();
+                        UpdateResults();
+                        return;
+                    }
 
-                _isClosing = true;
-                Close();
+                    _isClosing = true;
+                    Close();
+                }
+                return;
             }
+
+            // Navigate to selected folder
+            try
+            {
+                _addIn.NavigateToFolder(selected);
+            }
+            catch { }
+
+            _isClosing = true;
+            Close();
         }
         
         private void OnFullRefreshCompleted()
