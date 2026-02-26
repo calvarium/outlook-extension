@@ -84,6 +84,7 @@ namespace outlook_extension
             GlassStyle.EnableDrag(headerPanel);
 
             var contentCard = GlassStyle.CreateGlassCard();
+            contentCard.AutoScroll = true;
 
             var mainPanel = new TableLayoutPanel
             {

@@ -93,8 +93,14 @@ namespace outlook_extension
             {
                 contentElement.Margin = new Thickness(0, 16, 0, 16);
             }
-            Grid.SetRow(content, 1);
-            layout.Children.Add(content);
+            var contentScroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = content
+            };
+            Grid.SetRow(contentScroll, 1);
+            layout.Children.Add(contentScroll);
 
             var footer = BuildFooter();
             Grid.SetRow(footer, 2);
