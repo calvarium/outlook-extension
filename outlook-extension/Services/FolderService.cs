@@ -185,13 +185,14 @@ namespace outlook_extension
 
                     var cumulative = new List<FolderInfo>();
 
-                    foreach (var store in ordered)
+                    for (int storeIndex = 0; storeIndex < ordered.Count; storeIndex++)
                     {
+                        var store = ordered[storeIndex];
                         if (token.IsCancellationRequested) break;
 
                         try
                         {
-                            var perStore = BuildCacheForStore(store, token);
+                            var perStore = BuildCacheForStore(store, token, storeIndex);
                             if (perStore != null && perStore.Count > 0)
                             {
                                 cumulative.AddRange(perStore);
@@ -314,7 +315,7 @@ namespace outlook_extension
                 var cumulative = new List<FolderInfo>();
                 foreach (var store in ordered)
                 {
-                    var perStore = BuildCacheForStore(store, CancellationToken.None);
+                    var perStore = BuildCacheForStore(store, CancellationToken.None, 0);
                     if (perStore != null && perStore.Count > 0)
                     {
                         cumulative.AddRange(perStore);
@@ -516,7 +517,7 @@ namespace outlook_extension
              thread.Start();
          }
 
-        private List<FolderInfo> BuildCacheForStore(Outlook.Store store, CancellationToken token)
+        private List<FolderInfo> BuildCacheForStore(Outlook.Store store, CancellationToken token, int storeOrder)
         {
             var result = new List<FolderInfo>();
 
@@ -526,7 +527,7 @@ namespace outlook_extension
             try
             {
                 rootFolder = store.GetRootFolder();
-                TraverseFolderForBuild(rootFolder, store.DisplayName, new Stack<string>(), result, token);
+                TraverseFolderForBuild(rootFolder, store.DisplayName, new Stack<string>(), result, token, storeOrder);
             }
             catch (OperationCanceledException)
             {
@@ -567,7 +568,7 @@ namespace outlook_extension
             }
         }
 
-        private void TraverseFolderForBuild(Outlook.MAPIFolder folder, string mailboxName, Stack<string> path, List<FolderInfo> target, CancellationToken token)
+        private void TraverseFolderForBuild(Outlook.MAPIFolder folder, string mailboxName, Stack<string> path, List<FolderInfo> target, CancellationToken token, int storeOrder)
         {
             if (folder == null || token.IsCancellationRequested)
             {
@@ -607,7 +608,8 @@ namespace outlook_extension
                         FullPath = (!string.IsNullOrEmpty(mailboxName) && !string.IsNullOrEmpty(folderPath) && folderPath.StartsWith(mailboxName + " > ", StringComparison.OrdinalIgnoreCase))
                                     ? folderPath
                                     : (string.IsNullOrEmpty(mailboxName) ? folderPath : $"{mailboxName} > {folderPath}"),
-                        IsUnderInbox = folderPath.StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase)
+                        IsUnderInbox = folderPath.StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase),
+                        StoreOrder = storeOrder
                     };
                     target.Add(info);
                 }
@@ -626,7 +628,7 @@ namespace outlook_extension
 
                         try
                         {
-                            TraverseFolderForBuild(child, mailboxName, path, target, token);
+                            TraverseFolderForBuild(child, mailboxName, path, target, token, storeOrder);
                         }
                         finally
                         {

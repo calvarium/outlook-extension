@@ -16,6 +16,9 @@ namespace outlook_extension
 
         public bool IsUnderInbox { get; set; }
 
+        // StoreOrder: ordinal of the Outlook store/mailbox this folder belongs to (0 = first)
+        public int StoreOrder { get; set; }
+
         public FolderIdentifier Identifier => new FolderIdentifier
         {
             EntryId = EntryId,
