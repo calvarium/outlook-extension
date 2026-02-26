@@ -44,6 +44,20 @@ namespace outlook_extension
                 .ToList();
         }
 
+        private static bool IsSubsequence(string small, string large)
+        {
+            if (string.IsNullOrEmpty(small)) return true;
+            if (string.IsNullOrEmpty(large)) return false;
+
+            int si = 0, li = 0;
+            while (si < small.Length && li < large.Length)
+            {
+                if (small[si] == large[li]) si++;
+                li++;
+            }
+            return si == small.Length;
+        }
+
         private int ScoreFolder(FolderInfo folder, string query)
         {
             var score = 0;
@@ -66,21 +80,65 @@ namespace outlook_extension
                 return score;
             }
 
-            var fullPath = folder.FullPath ?? string.Empty;
-            var folderName = folder.DisplayName ?? string.Empty;
+            // Tokenize query and normalize to lower for fast comparisons
+            var tokens = query.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Select(t => t.ToLowerInvariant()).ToArray();
 
-            if (string.Equals(folderName, query, StringComparison.OrdinalIgnoreCase))
+            var displayName = (folder.DisplayName ?? string.Empty).ToLowerInvariant();
+            var fullPath = (folder.FullPath ?? string.Empty).ToLowerInvariant();
+
+            // Primary ranking should favor matches in DisplayName
+            int tokenMatchSum = 0;
+
+            foreach (var token in tokens)
             {
-                score += 200;
+                int tokenScore = 0;
+
+                if (displayName.Equals(token, StringComparison.OrdinalIgnoreCase))
+                {
+                    tokenScore += 300; // exact folder name match
+                }
+                else if (displayName.StartsWith(token, StringComparison.OrdinalIgnoreCase))
+                {
+                    tokenScore += 200; // prefix match on name
+                }
+                else if (displayName.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    tokenScore += 150; // substring in name
+                }
+                else if (IsSubsequence(token, displayName))
+                {
+                    tokenScore += 90; // fuzzy subsequence in name
+                }
+
+                // If not found in name, check path
+                if (tokenScore == 0)
+                {
+                    if (fullPath.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        tokenScore += 80; // substring in path
+                    }
+                    else if (IsSubsequence(token, fullPath))
+                    {
+                        tokenScore += 40; // subsequence in path
+                    }
+                }
+
+                // If token didn't match anywhere, this folder should not be considered relevant
+                if (tokenScore == 0)
+                {
+                    return -1;
+                }
+
+                // smaller tokens are less significant, scale slightly by token length
+                tokenScore += Math.Min(20, token.Length * 3);
+
+                tokenMatchSum += tokenScore;
             }
 
-            if (fullPath.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                score += 100;
-                return score;
-            }
+            score += tokenMatchSum;
 
-            return -1;
+            return score;
         }
     }
 }
