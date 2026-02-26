@@ -545,12 +545,34 @@ namespace outlook_extension
                     string convId = null;
                     DateTime? received = null;
                     string sender = null;
+                    string internetMessageId = null;
                     try
                     {
                         try { subject = mailItem.Subject; } catch { }
                         try { convId = mailItem.ConversationID; } catch { }
                         try { received = mailItem.ReceivedTime; } catch { }
                         try { sender = mailItem.SenderEmailAddress; } catch { }
+                        try
+                        {
+                            // read InternetMessageId via PropertyAccessor (PIA may not expose it)
+                            if (Marshal.IsComObject(mailItem))
+                            {
+                                try
+                                {
+                                    var pa = mailItem.PropertyAccessor;
+                                    try
+                                    {
+                                        internetMessageId = pa.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001F") as string;
+                                    }
+                                    finally
+                                    {
+                                        try { if (pa != null) Marshal.ReleaseComObject(pa); } catch { }
+                                    }
+                                }
+                                catch { internetMessageId = null; }
+                            }
+                        }
+                        catch { }
                     }
                     catch { }
 
@@ -560,6 +582,16 @@ namespace outlook_extension
                         movedItem = mailItem.Move(folder) as Outlook.MailItem;
                         if (movedItem != null)
                         {
+                            // try to ensure moved item is persisted and nudged into indexes/search
+                            try
+                            {
+                                movedItem.Save();
+                                TryNudgeSearchIndex(movedItem);
+                            }
+                            catch (Exception exSave)
+                            {
+                                try { _loggingService.LogError("MoveSaveOrNudge", exSave); } catch { }
+                            }
                             string newEntryId = null;
                             string newStoreId = null;
                             string newFolderEntryId = null;
@@ -595,7 +627,8 @@ namespace outlook_extension
                                         Subject = subject,
                                         ConversationId = convId,
                                         ReceivedTime = received,
-                                        SenderEmail = sender
+                                        SenderEmail = sender,
+                                        InternetMessageId = internetMessageId
                                     };
                                     _lastMoveEntries.Add(entry);
                                     try { _loggingService.LogInfo($"Recorded move entry: oldFolder={entry.OldFolderEntryId}, oldStore={entry.OldStoreId}, newEntry={entry.NewEntryId}, newStore={entry.NewStoreId}, subject={entry.Subject}"); } catch { }
@@ -648,6 +681,15 @@ namespace outlook_extension
                         movedItem = meetingItem.Move(folder) as Outlook.MeetingItem;
                         if (movedItem != null)
                         {
+                            try
+                            {
+                                movedItem.Save();
+                                TryNudgeSearchIndex(movedItem);
+                            }
+                            catch (Exception exSave)
+                            {
+                                try { _loggingService.LogError("MoveSaveOrNudgeMeeting", exSave); } catch { }
+                            }
                             string newEntryId = null;
                             string newStoreId = null;
                             string newFolderEntryId = null;
@@ -1178,6 +1220,7 @@ namespace outlook_extension
             public string ConversationId { get; set; }
             public DateTime? ReceivedTime { get; set; }
             public string SenderEmail { get; set; }
+            public string InternetMessageId { get; set; }
         }
 
         // helper: recursively search folder for item matching MoveEntry metadata
@@ -1259,5 +1302,60 @@ namespace outlook_extension
 
             return null;
         }
+
+        // Best-effort nudge to make moved item visible to Outlook search/indexing:
+        // - ensure Save() is called
+        // - try to refresh UI explorers/inspectors which may trigger indexing/on-demand refresh
+        private void TryNudgeSearchIndex(object movedObj)
+        {
+            if (movedObj == null)
+                return;
+
+            try
+            {
+                try
+                {
+                    if (movedObj is Outlook.MailItem m)
+                    {
+                        m.Save();
+                    }
+                    else if (movedObj is Outlook.MeetingItem mt)
+                    {
+                        mt.Save();
+                    }
+                    else
+                    {
+                        // try dynamic Save
+                        var mi = movedObj.GetType().GetMethod("Save");
+                        mi?.Invoke(movedObj, null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    try { _loggingService.LogError("TryNudge_Save", ex); } catch { }
+                }
+
+                try
+                {
+                    var explorer = Application.ActiveExplorer();
+                    if (explorer != null)
+                    {
+                        try { explorer.CommandBars.ExecuteMso("Refresh"); } catch (Exception ex) { try { _loggingService.LogError("TryNudge_ExplorerRefresh", ex); } catch { } }
+                    }
+
+                    var inspector = Application.ActiveInspector();
+                    if (inspector != null)
+                    {
+                        try { inspector.CommandBars.ExecuteMso("Refresh"); } catch (Exception ex) { try { _loggingService.LogError("TryNudge_InspectorRefresh", ex); } catch { } }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    try { _loggingService.LogError("TryNudge_RefreshWrap", ex); } catch { }
+                }
+            }
+            catch { }
+        }
+
     }
 }
