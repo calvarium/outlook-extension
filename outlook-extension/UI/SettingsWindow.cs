@@ -19,6 +19,7 @@ namespace outlook_extension
         private readonly TextBox _maxRecentsBox;
         private readonly CheckBox _showInboxOnly;
         private readonly CheckBox _includeArchives;
+        private readonly CheckBox _keepQuickMoveOpen;
 
         public SettingsWindow(FolderService folderService, SettingsService settingsService, HotkeyService hotkeyService)
         {
@@ -75,6 +76,12 @@ namespace outlook_extension
                 Content = "Archiv/Online-Archive anzeigen",
                 Foreground = WpfStyles.TextPrimary,
                 IsChecked = _settingsService.Current.IncludeArchives
+            };
+            _keepQuickMoveOpen = new CheckBox
+            {
+                Content = "Quick Move offen lassen",
+                Foreground = WpfStyles.TextPrimary,
+                IsChecked = _settingsService.Current.KeepQuickMoveOpen
             };
 
             var header = BuildHeader();
@@ -149,7 +156,7 @@ namespace outlook_extension
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             }
@@ -234,9 +241,14 @@ namespace outlook_extension
             _includeArchives.Margin = new Thickness(0, 8, 0, 0);
             grid.Children.Add(_includeArchives);
 
+            Grid.SetRow(_keepQuickMoveOpen, 7);
+            Grid.SetColumn(_keepQuickMoveOpen, 1);
+            _keepQuickMoveOpen.Margin = new Thickness(0, 8, 0, 0);
+            grid.Children.Add(_keepQuickMoveOpen);
+
             var refreshButton = WpfStyles.CreateSubtleButton("Ordnerliste neu laden");
             refreshButton.Click += (sender, args) => _folderService.RefreshCache();
-            Grid.SetRow(refreshButton, 7);
+            Grid.SetRow(refreshButton, 8);
             Grid.SetColumn(refreshButton, 1);
             refreshButton.Margin = new Thickness(0, 14, 0, 0);
             grid.Children.Add(refreshButton);
@@ -438,6 +450,7 @@ namespace outlook_extension
             _settingsService.Current.MaxRecents = int.Parse(_maxRecentsBox.Text);
             _settingsService.Current.ShowInboxOnly = _showInboxOnly.IsChecked ?? false;
             _settingsService.Current.IncludeArchives = _includeArchives.IsChecked ?? false;
+            _settingsService.Current.KeepQuickMoveOpen = _keepQuickMoveOpen.IsChecked ?? false;
             _settingsService.Save();
             _hotkeyService.RegisterShortcut();
 

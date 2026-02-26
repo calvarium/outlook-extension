@@ -185,7 +185,7 @@ namespace outlook_extension
             }
             else if (e.KeyCode == Keys.Enter)
             {
-                MoveSelectedFolder(e.Control);
+                MoveSelectedFolder();
                 e.Handled = true;
             }
         }
@@ -211,7 +211,7 @@ namespace outlook_extension
             }
             else if (e.KeyCode == Keys.Enter)
             {
-                MoveSelectedFolder(e.Control);
+                MoveSelectedFolder();
                 e.Handled = true;
             }
         }
@@ -284,10 +284,10 @@ namespace outlook_extension
 
         private void OnResultsDoubleClick(object sender, EventArgs e)
         {
-            MoveSelectedFolder(false);
+            MoveSelectedFolder();
         }
 
-        private void MoveSelectedFolder(bool keepDialogOpen)
+        private void MoveSelectedFolder()
         {
             var selected = _resultsList.SelectedItem as FolderInfo;
             if (selected == null)
@@ -295,10 +295,12 @@ namespace outlook_extension
                 return;
             }
 
-            var moved = _addIn.MoveSelectionToFolder(selected, keepDialogOpen);
+            var shouldKeepOpen = _addIn?.SettingsService?.Current?.KeepQuickMoveOpen ?? false;
+
+            var moved = _addIn.MoveSelectionToFolder(selected, shouldKeepOpen);
             if (moved)
             {
-                if (keepDialogOpen)
+                if (shouldKeepOpen)
                 {
                     _searchBox.SelectAll();
                     _searchBox.Focus();

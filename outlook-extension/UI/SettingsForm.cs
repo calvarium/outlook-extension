@@ -15,6 +15,7 @@ namespace outlook_extension
         private readonly NumericUpDown _maxRecentsInput;
         private readonly CheckBox _showInboxOnly;
         private readonly CheckBox _includeArchives;
+        private readonly CheckBox _keepQuickMoveOpen;
 
         public SettingsForm(FolderService folderService, SettingsService settingsService, HotkeyService hotkeyService)
         {
@@ -88,7 +89,7 @@ namespace outlook_extension
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 9,
+                RowCount = 10,
                 AutoSize = true
             };
             mainPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
@@ -173,8 +174,15 @@ namespace outlook_extension
                 Checked = _settingsService.Current.IncludeArchives,
                 AutoSize = true
             };
+            _keepQuickMoveOpen = new CheckBox
+            {
+                Text = "Quick Move offen lassen",
+                Checked = _settingsService.Current.KeepQuickMoveOpen,
+                AutoSize = true
+            };
             GlassStyle.StyleCheckBox(_showInboxOnly);
             GlassStyle.StyleCheckBox(_includeArchives);
+            GlassStyle.StyleCheckBox(_keepQuickMoveOpen);
 
             var refreshButton = new Button
             {
@@ -219,7 +227,9 @@ namespace outlook_extension
             mainPanel.Controls.Add(new Label(), 0, 5);
             mainPanel.Controls.Add(_includeArchives, 1, 5);
             mainPanel.Controls.Add(new Label(), 0, 6);
-            mainPanel.Controls.Add(refreshButton, 1, 6);
+            mainPanel.Controls.Add(_keepQuickMoveOpen, 1, 6);
+            mainPanel.Controls.Add(new Label(), 0, 7);
+            mainPanel.Controls.Add(refreshButton, 1, 7);
 
             contentCard.Controls.Add(mainPanel);
             rootLayout.Controls.Add(headerPanel, 0, 0);
@@ -231,6 +241,7 @@ namespace outlook_extension
             mainPanel.Padding = new Padding(12);
             mainPanel.SetColumnSpan(_showInboxOnly, 2);
             mainPanel.SetColumnSpan(_includeArchives, 2);
+            mainPanel.SetColumnSpan(_keepQuickMoveOpen, 2);
             mainPanel.SetColumnSpan(refreshButton, 2);
             refreshButton.Anchor = AnchorStyles.Left;
             AcceptButton = saveButton;
@@ -323,6 +334,7 @@ namespace outlook_extension
             _settingsService.Current.MaxRecents = (int)_maxRecentsInput.Value;
             _settingsService.Current.ShowInboxOnly = _showInboxOnly.Checked;
             _settingsService.Current.IncludeArchives = _includeArchives.Checked;
+            _settingsService.Current.KeepQuickMoveOpen = _keepQuickMoveOpen.Checked;
             _settingsService.Save();
             _hotkeyService.RegisterShortcut();
 

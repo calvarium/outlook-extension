@@ -77,7 +77,7 @@ namespace outlook_extension
             _resultsList = WpfStyles.CreateListBox();
             _resultsList.KeyDown += OnResultsKeyDown;
             _resultsList.PreviewTextInput += OnResultsTextInput;
-            _resultsList.MouseDoubleClick += (sender, args) => MoveSelectedFolder(false);
+            _resultsList.MouseDoubleClick += (sender, args) => MoveSelectedFolder();
             _resultsList.SelectionChanged += (sender, args) => _searchBox.Focus();
             _resultsList.PreviewMouseDown += (sender, args) => _searchBox.Focus();
 
@@ -436,7 +436,7 @@ namespace outlook_extension
             }
             else if (e.Key == Key.Enter)
             {
-                MoveSelectedFolder(Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+                MoveSelectedFolder();
                 e.Handled = true;
             }
         }
@@ -461,7 +461,7 @@ namespace outlook_extension
             }
             else if (e.Key == Key.Enter)
             {
-                MoveSelectedFolder(Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+                MoveSelectedFolder();
                 e.Handled = true;
             }
         }
@@ -503,7 +503,7 @@ namespace outlook_extension
             _searchBox.SelectionStart = deleteFrom;
         }
 
-        private void MoveSelectedFolder(bool keepDialogOpen)
+        private void MoveSelectedFolder()
         {
             var selected = _resultsList.SelectedItem as FolderInfo;
             if (selected == null)
@@ -511,13 +511,15 @@ namespace outlook_extension
                 return;
             }
 
+            var shouldKeepOpen = _addIn?.SettingsService?.Current?.KeepQuickMoveOpen ?? false;
+
             // If Ctrl is held, perform move; otherwise navigate to the selected folder in Outlook
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             {
-                var moved = _addIn.MoveSelectionToFolder(selected, keepDialogOpen);
+                var moved = _addIn.MoveSelectionToFolder(selected, shouldKeepOpen);
                 if (moved)
                 {
-                    if (keepDialogOpen)
+                    if (shouldKeepOpen)
                     {
                         _searchBox.SelectAll();
                         _searchBox.Focus();

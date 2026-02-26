@@ -29,5 +29,8 @@ namespace outlook_extension
 
         [DataMember(Order = 8)]
         public string SettingsShortcut { get; set; } = "Shift+Alt+O";
+
+        [DataMember(Order = 9)]
+        public bool KeepQuickMoveOpen { get; set; }
     }
 }
