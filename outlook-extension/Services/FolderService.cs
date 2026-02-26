@@ -419,6 +419,22 @@ namespace outlook_extension
 
                                 var folderPath = pathParts.Count > 0 ? string.Join(" > ", pathParts) : cached.FolderPath;
 
+                                // Ensure we don't duplicate the mailbox/display name when the root folder
+                                // name already equals the mailbox display name (which can happen for some stores).
+                                string fullPath;
+                                if (string.IsNullOrEmpty(mailboxName))
+                                {
+                                    fullPath = folderPath;
+                                }
+                                else if (!string.IsNullOrEmpty(folderPath) && folderPath.StartsWith(mailboxName + " > ", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    fullPath = folderPath;
+                                }
+                                else
+                                {
+                                    fullPath = string.IsNullOrEmpty(folderPath) ? mailboxName : $"{mailboxName} > {folderPath}";
+                                }
+
                                 var info = new FolderInfo
                                 {
                                     EntryId = cached.EntryId,
@@ -426,7 +442,7 @@ namespace outlook_extension
                                     DisplayName = folder.Name ?? cached.DisplayName,
                                     MailboxName = mailboxName,
                                     FolderPath = folderPath,
-                                    FullPath = string.IsNullOrEmpty(mailboxName) ? folderPath : $"{mailboxName} > {folderPath}",
+                                    FullPath = fullPath,
                                     IsUnderInbox = (folderPath ?? string.Empty).StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase)
                                 };
 
@@ -561,7 +577,23 @@ namespace outlook_extension
             path.Push(folder.Name);
             try
             {
-                if (folder.DefaultItemType == Outlook.OlItemType.olMailItem)
+                // Determine whether to include this folder in the index.
+                // Include when the folder itself is a mail folder or when it has child folders (so parent folders like "Posteingang" are included).
+                Outlook.Folders folders = null;
+                bool includeThis = false;
+                try
+                {
+                    includeThis = folder.DefaultItemType == Outlook.OlItemType.olMailItem;
+                    // retrieve child folders once
+                    try { folders = folder.Folders; } catch { folders = null; }
+                    if (!includeThis && folders != null)
+                    {
+                        try { includeThis = folders.Count > 0; } catch { includeThis = includeThis || false; }
+                    }
+                }
+                catch { }
+
+                if (includeThis)
                 {
                     var folderPath = string.Join(" > ", path.Reverse());
                     var info = new FolderInfo
@@ -571,42 +603,57 @@ namespace outlook_extension
                         DisplayName = folder.Name,
                         MailboxName = mailboxName,
                         FolderPath = folderPath,
-                        FullPath = $"{mailboxName} > {folderPath}",
+                        // Avoid duplicating mailbox name if the folderPath already begins with it
+                        FullPath = (!string.IsNullOrEmpty(mailboxName) && !string.IsNullOrEmpty(folderPath) && folderPath.StartsWith(mailboxName + " > ", StringComparison.OrdinalIgnoreCase))
+                                    ? folderPath
+                                    : (string.IsNullOrEmpty(mailboxName) ? folderPath : $"{mailboxName} > {folderPath}"),
                         IsUnderInbox = folderPath.StartsWith("Posteingang", StringComparison.OrdinalIgnoreCase)
                     };
                     target.Add(info);
                 }
 
-                var folders = folder.Folders;
-                foreach (Outlook.MAPIFolder child in folders)
+                // iterate children (folders may be null if access failed)
+                if (folders == null)
                 {
-                    if (token.IsCancellationRequested) break;
-
-                    try
-                    {
-                        TraverseFolderForBuild(child, mailboxName, path, target, token);
-                    }
-                    finally
-                    {
-                        if (child != null) Marshal.ReleaseComObject(child);
-                    }
+                    try { folders = folder.Folders; } catch { folders = null; }
                 }
 
-                if (folders != null) Marshal.ReleaseComObject(folders);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _loggingService.LogError("FolderTraverse", ex);
-            }
-            finally
-            {
-                path.Pop();
-            }
-        }
+                if (folders != null)
+                {
+                    foreach (Outlook.MAPIFolder child in folders)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        try
+                        {
+                            TraverseFolderForBuild(child, mailboxName, path, target, token);
+                        }
+                        finally
+                        {
+                            if (child != null) Marshal.ReleaseComObject(child);
+                        }
+                    }
+
+                    try { if (folders != null) Marshal.ReleaseComObject(folders); } catch { }
+                }
+                else
+                {
+                    // nothing to release
+                }
+             }
+             catch (OperationCanceledException)
+             {
+                 throw;
+             }
+             catch (Exception ex)
+             {
+                 _loggingService.LogError("FolderTraverse", ex);
+             }
+             finally
+             {
+                 path.Pop();
+             }
+         }
 
         private bool ShouldIncludeStore(Outlook.Store store)
         {
