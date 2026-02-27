@@ -168,31 +168,42 @@ namespace outlook_extension
                  _searchBox.Focus();
                  UpdateResults();
 
-                 // initialize status display from folder service current state
+                 // Intelligente Status-Anzeige basierend auf Cache-Zustand
                  try
                  {
-                     if (_folderService.IsRefreshing)
-                     {
-                         OnRefreshingChanged(true);
+                     var hasCachedFolders = _folderService.HasCachedFolders;
 
-                         var lastProcessed = _folderService.LastProgressProcessed;
-                         var lastTotal = _folderService.LastProgressTotal;
-                         if (lastTotal > 0)
-                         {
-                             OnProgressUpdated(lastProcessed, lastTotal);
-                         }
-                     }
-
-                     // If cache is empty and no refresh in progress, trigger a refresh and show spinner
-                     var folders = _folderService.GetCachedFolders();
-                     if ((folders == null || folders.Count == 0) && !_folderService.IsRefreshing)
+                     // Fall 1: Cache ist leer - zeige Ladezustand
+                     if (!hasCachedFolders)
                      {
-                         try
+                         // Prüfe ob bereits ein Refresh läuft
+                         if (_folderService.IsRefreshing)
                          {
                              OnRefreshingChanged(true);
-                             _folderService.RefreshCache();
+
+                             var lastProcessed = _folderService.LastProgressProcessed;
+                             var lastTotal = _folderService.LastProgressTotal;
+                             if (lastTotal > 0)
+                             {
+                                 OnProgressUpdated(lastProcessed, lastTotal);
+                             }
                          }
-                         catch { }
+                         else
+                         {
+                             // Starte einen Refresh mit visuellem Feedback (nicht silent)
+                             try
+                             {
+                                 OnRefreshingChanged(true);
+                                 _folderService.RefreshCache(silent: false);
+                             }
+                             catch { }
+                         }
+                     }
+                     else
+                     {
+                         // Fall 2: Cache hat Daten - zeige "Auf dem aktuellen Stand"
+                         // Hintergrund-Refreshes laufen silent und aktualisieren die Liste dynamisch
+                         OnRefreshingChanged(false);
                      }
                  }
                  catch { }
@@ -359,7 +370,32 @@ namespace outlook_extension
             {
                 if (!_isClosing)
                 {
+                    // Merke die aktuelle Auswahl um sie nach dem Update wieder herzustellen
+                    var currentSelection = _resultsList.SelectedItem as FolderInfo;
+                    var currentSelectedIndex = _resultsList.SelectedIndex;
+
                     UpdateResults();
+
+                    // Versuche die vorherige Auswahl wieder herzustellen
+                    if (currentSelection != null && _currentResults != null)
+                    {
+                        var matchIndex = _currentResults.FindIndex(f => 
+                            f.EntryId == currentSelection.EntryId && 
+                            f.StoreId == currentSelection.StoreId);
+
+                        if (matchIndex >= 0)
+                        {
+                            _resultsList.SelectedIndex = matchIndex;
+                        }
+                        else if (currentSelectedIndex >= 0 && currentSelectedIndex < _currentResults.Count)
+                        {
+                            _resultsList.SelectedIndex = currentSelectedIndex;
+                        }
+                        else if (_currentResults.Count > 0)
+                        {
+                            _resultsList.SelectedIndex = 0;
+                        }
+                    }
                 }
             }), DispatcherPriority.Background);
         }

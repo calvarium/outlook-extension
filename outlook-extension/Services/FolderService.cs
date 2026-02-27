@@ -20,6 +20,7 @@ namespace outlook_extension
         private bool _warmupStarted;
         private volatile bool _isRefreshing;
         private volatile bool _isVerifying;
+        private volatile bool _silentRefresh; // true wenn Refresh im Hintergrund läuft ohne UI-Feedback
 
         private CancellationTokenSource _refreshCts;
 
@@ -33,9 +34,10 @@ namespace outlook_extension
         private int _lastProgressProcessed;
         private int _lastProgressTotal;
 
-        public bool IsRefreshing => _isRefreshing;
+        public bool IsRefreshing => _isRefreshing && !_silentRefresh; // Nur sichtbar wenn nicht silent
         public int LastProgressProcessed => _lastProgressProcessed;
         public int LastProgressTotal => _lastProgressTotal;
+        public bool HasCachedFolders { get { lock (_lock) { return _cache.Count > 0; } } }
 
         public FolderService(Outlook.Application application, SettingsService settingsService, LoggingService loggingService)
         {
@@ -105,6 +107,14 @@ namespace outlook_extension
             }
         }
 
+        public bool IsCacheEmpty()
+        {
+            lock (_lock)
+            {
+                return _cache.Count == 0;
+            }
+        }
+
         public bool WarmupStarted => _warmupStarted;
 
         public void InitializeCache()
@@ -119,7 +129,7 @@ namespace outlook_extension
         }
 
         // Non-blocking public refresh: runs cache build on background STA thread
-        public void RefreshCache()
+        public void RefreshCache(bool silent = false)
         {
             // cancel previous
             try
@@ -136,8 +146,14 @@ namespace outlook_extension
                 // let cancellation take effect and continue
             }
 
+            _silentRefresh = silent;
             _isRefreshing = true;
-            RefreshingChanged?.Invoke(true);
+
+            // Nur RefreshingChanged feuern wenn nicht silent
+            if (!silent)
+            {
+                RefreshingChanged?.Invoke(true);
+            }
 
             var thread = new System.Threading.Thread(() =>
             {
@@ -259,7 +275,10 @@ namespace outlook_extension
                     }
                     catch { }
 
+                    var wasSilent = _silentRefresh;
                     _isRefreshing = false;
+                    _silentRefresh = false;
+
                     // notify full refresh completed only if the refresh actually finished all stores
                     try
                     {
@@ -269,7 +288,12 @@ namespace outlook_extension
                         }
                     }
                     catch { }
-                    RefreshingChanged?.Invoke(false);
+
+                    // Nur RefreshingChanged feuern wenn es kein silent refresh war
+                    if (!wasSilent)
+                    {
+                        RefreshingChanged?.Invoke(false);
+                    }
                 }
             })
             {

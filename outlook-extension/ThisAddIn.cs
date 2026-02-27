@@ -1147,12 +1147,12 @@ namespace outlook_extension
 
         private void OnStoreChanged(Outlook.Store store)
         {
-            _folderService.RefreshCache();
+            _folderService.RefreshCache(silent: true);
         }
 
         private void OnBeforeStoreRemove(Outlook.Store store, ref bool cancel)
         {
-            _folderService.RefreshCache();
+            _folderService.RefreshCache(silent: true);
         }
 
         private void StartPostStartupTimer()
@@ -1192,23 +1192,24 @@ namespace outlook_extension
                     }
 
                     // Trigger initial cache refresh in background (FolderService.RefreshCache is non-blocking)
+                    // Silent = true damit kein RefreshingChanged-Event gefeuert wird und der User nichts davon sieht
                     try
                     {
-                        _folderService.RefreshCache();
+                        _folderService.RefreshCache(silent: true);
                     }
                     catch (Exception ex)
                     {
                         _loggingService.LogError("FolderCachePostStartup", ex);
                     }
 
-                    // Start periodic background refresh every 5 minutes
+                    // Start periodic background refresh every 5 minutes (silent)
                     try
                     {
                         _periodicRefreshTimer = new System.Threading.Timer(_ =>
                         {
                             try
                             {
-                                _folderService.RefreshCache();
+                                _folderService.RefreshCache(silent: true);
                             }
                             catch (Exception ex)
                             {
