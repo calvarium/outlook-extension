@@ -1,4 +1,4 @@
-﻿<Project ToolsVersion="17.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="17.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <!--
     This section defines project-level properties.
@@ -262,10 +262,10 @@
   <PropertyGroup>
     <ManifestKeyFile>outlook-extension_TemporaryKey.pfx</ManifestKeyFile>
   </PropertyGroup>
-  <PropertyGroup>
-    <ManifestCertificateThumbprint>B3688DD8BD84FFE53327B8ECE1C86527CA2B7214</ManifestCertificateThumbprint>
-  </PropertyGroup>
   <!-- Include the build rules for a C# project. -->
+  <PropertyGroup>
+    <ManifestCertificateThumbprint>60547A45D8618D9841F7F6D08412D2E3C2628444</ManifestCertificateThumbprint>
+  </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- Include additional build rules for an Office application add-in. -->
   <Import Project="$(VSToolsPath)\OfficeTools\Microsoft.VisualStudio.Tools.Office.targets" Condition="'$(VSToolsPath)' != ''" />
